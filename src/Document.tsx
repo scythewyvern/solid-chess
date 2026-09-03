@@ -11,6 +11,7 @@ export default function Document(props: ParentProps) {
         <meta charset='utf-8' />
         <meta name='viewport' content='width=device-width, initial-scale=1.0' />
         <meta name='google' content='notranslate' />
+        <meta name='ya:notranslate' content='notranslate' />
       </head>
       <body>{props.children}</body>
     </html>
