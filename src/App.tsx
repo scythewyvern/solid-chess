@@ -7,6 +7,8 @@ import { useLastRoom } from './use-last-room'
 import { useLocalGame } from './use-local-game'
 import { pingLevel, useOnlineGame } from './use-online-game'
 
+import '@fontsource-variable/inter/index.css'
+import '@fontsource-variable/jetbrains-mono/index.css'
 import './styles.css'
 
 type Mode =
