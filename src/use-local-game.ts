@@ -19,6 +19,7 @@ export function useLocalGame(): LocalGame {
   let [past, setPast] = createSignal<GameState[]>([])
 
   function submitMove(from: Square, to: Square, promotion?: PieceType) {
+    if (getGameStatus(game()).status !== 'ongoing') return
     let next = applyMove(game(), { from, to, promotion })
     setPast((p) => [...p, game()])
     setGame(next)

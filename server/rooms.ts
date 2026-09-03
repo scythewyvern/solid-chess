@@ -1,4 +1,4 @@
-import { applyMove, getPiece, initialGameState, opposite } from '../src/engine'
+import { applyMove, getGameStatus, getPiece, initialGameState, opposite } from '../src/engine'
 import type { Color, GameState, Move } from '../src/engine'
 import { makeRoomCode, normalizeRoomCode } from '../src/net-protocol'
 import type { ResignResult, ServerMsg } from '../src/net-protocol'
@@ -173,6 +173,8 @@ function handleMove(book: RoomBook, sender: Seat | null, rawMove: unknown): Redu
   if (seated(room, sender) === false)
     return { sender, replies: errorReply('You are not in a room') }
   if (room.result !== null) return { sender, replies: errorReply('Game is over') }
+  if (getGameStatus(room.game).status !== 'ongoing')
+    return { sender, replies: errorReply('Game is over') }
   if (room.game.turn !== sender.color) return { sender, replies: errorReply('Not your turn') }
   if (isMoveShape(rawMove) === false) return { sender, replies: errorReply('Illegal move') }
   let move = rawMove as Move
@@ -195,6 +197,7 @@ function handleResign(book: RoomBook, sender: Seat | null): ReduceOutput {
   if (seated(room, sender) === false)
     return { sender, replies: errorReply('You are not in a room') }
   room.result = { winner: opposite(sender.color), reason: 'resign' }
+  room.rematch = { white: false, black: false }
   return { sender, replies: stateReplies(room) }
 }
 
@@ -206,7 +209,8 @@ function handleRematch(book: RoomBook, sender: Seat | null): ReduceOutput {
     return { sender, replies: errorReply('You are not in a room') }
   // Rematch is a post-game vote: mid-game votes are rejected so a misclick
   // can never wipe a live game.
-  if (room.result === null) return { sender, replies: errorReply('Game is not over') }
+  if (room.result === null && getGameStatus(room.game).status === 'ongoing')
+    return { sender, replies: errorReply('Game is not over') }
   room.rematch[sender.color] = true
   if (room.rematch.white && room.rematch.black) {
     let whiteToken = room.seats.white

@@ -165,6 +165,9 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
 
   function sendMove(from: Square, to: Square, promotion?: PieceType): void {
     if (connected() === false) return
+    if (getGameStatus(game()).status !== 'ongoing' || result() !== null) return
+    let me = color()
+    if (me !== null && game().turn !== me) return
     let move: Move = { from, to, promotion }
     try {
       let applied = applyMove(game(), move)

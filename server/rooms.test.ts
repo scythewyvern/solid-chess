@@ -280,7 +280,7 @@ describe('rooms reducer', () => {
     })
   })
 
-  test('second resign overwrites the result', () => {
+  test('second resign overwrites the result and clears stale votes', () => {
     let book = freshBook()
     let created = createRoom(book, 'a')
     let code = (findMsg(created.replies, 'room') as RoomMsg).room
@@ -288,9 +288,38 @@ describe('rooms reducer', () => {
     let white: Seat = { room: code, color: 'white', token: 'a' }
     let black: Seat = { room: code, color: 'black', token: 'b' }
     reduceRooms(book, 'a', white, { type: 'resign' })
+    reduceRooms(book, 'a', white, { type: 'rematch' })
     let second = reduceRooms(book, 'b', black, { type: 'resign' })
     let state = findMsg(second.replies, 'state') as StateMsg
     expect(state.result).toEqual({ winner: 'white', reason: 'resign' })
+    expect(state.rematch).toEqual({ white: false, black: false })
+  })
+
+  test('mate on the board blocks moves and allows rematch', () => {
+    let book = freshBook()
+    let created = createRoom(book, 'a')
+    let code = (findMsg(created.replies, 'room') as RoomMsg).room
+    reduceRooms(book, 'b', null, { type: 'join', room: code })
+    let white: Seat = { room: code, color: 'white', token: 'a' }
+    let black: Seat = { room: code, color: 'black', token: 'b' }
+    for (let [token, seat, move] of [
+      ['a', white, mv('f2', 'f3')],
+      ['b', black, mv('e7', 'e5')],
+      ['a', white, mv('g2', 'g4')],
+      ['b', black, mv('d8', 'h4')],
+    ] as Array<[string, Seat, Move]>) {
+      let out = reduceRooms(book, token, seat, { type: 'move', move })
+      expect(findMsg(out.replies, 'error')).toBeUndefined()
+    }
+    // Fool's mate is on the board, no resignation: the game is over anyway.
+    let extra = reduceRooms(book, 'a', white, { type: 'move', move: mv('a2', 'a3') })
+    expect(findMsg(extra.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Game is over',
+    })
+    let vote = reduceRooms(book, 'a', white, { type: 'rematch' })
+    let state = findMsg(vote.replies, 'state') as StateMsg
+    expect(state.rematch).toEqual({ white: true, black: false })
   })
 
   test('a lone vote does not survive a newcomer', () => {
