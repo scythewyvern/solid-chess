@@ -27,6 +27,22 @@ let WS_URL: string = import.meta.env.VITE_WS_URL ?? defaultWsUrl()
 // SSR-safe no-op during prerender; idempotent across HMR remounts.
 initClientErrorReporting()
 
+// Translators (Google, Yandex) leave fingerprints our own DOM never has:
+// a translated-* class on <html>, their container nodes, or <font>
+// wrappers around text. Any of them means the crash likely came from
+// translated DOM, so the fallback can say so directly.
+function translationDetected(): boolean {
+  if (typeof document === 'undefined') return false
+  try {
+    if (document.documentElement.className.includes('translated-')) return true
+    if (document.querySelector('font') !== null) return true
+    if (document.querySelector('[id^="goog-te"]') !== null) return true
+  } catch {
+    return false
+  }
+  return false
+}
+
 function CrashFallback(props: { err: Accessor<unknown>; reset: () => void }) {
   let getErr = () => props.err()
   let getMessage = (): string => {
@@ -42,7 +58,17 @@ function CrashFallback(props: { err: Accessor<unknown>; reset: () => void }) {
   }
   return (
     <div class='error' role='alert'>
-      <span>Something broke: {getMessage()}. The error was sent to the server log.</span>
+      <Show
+        when={translationDetected()}
+        fallback={
+          <span>Something broke: {getMessage()}. The error was sent to the server log.</span>
+        }
+      >
+        <span>
+          Page translation breaks the board — turn it off and reload. The error was sent to the
+          server log.
+        </span>
+      </Show>
       <button type='button' class='btn btn-secondary' onClick={() => props.reset()}>
         Retry
       </button>

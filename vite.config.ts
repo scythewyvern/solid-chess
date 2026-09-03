@@ -8,7 +8,13 @@ export default defineConfig({
   // (or a built-in shell). `vite build` prerenders the shell into
   // dist/client/index.html and emits a purely static dist/client.
   plugins: [
-    solid({ start: true, diagnostics: true }), // add `ssr: true` for streaming SSR
+    solid({
+      start: {
+        app: 'src/App.tsx',
+        document: 'src/Document.tsx',
+      },
+      diagnostics: true,
+    }), // add `ssr: true` for streaming SSR
     iconsSpritesheet({
       withTypes: true,
       inputDir: 'icons',
