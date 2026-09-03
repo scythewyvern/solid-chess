@@ -1,5 +1,7 @@
-import { createEffect, createMemo, createSignal, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, Errored, onSettled, Show } from 'solid-js'
+import type { Accessor } from 'solid-js'
 
+import { initClientErrorReporting, reportClientError } from './client-log'
 import { GameView } from './game-view'
 import { MenuScreen } from './menu-screen'
 import type { ComputerChoice } from './menu-screen'
@@ -20,6 +22,36 @@ type Mode =
   | { kind: 'online'; create: boolean; room: string }
 
 let WS_URL: string = import.meta.env.VITE_WS_URL ?? defaultWsUrl()
+
+// Install window.onerror / unhandledrejection forwarding to Railway logs.
+// SSR-safe no-op during prerender; idempotent across HMR remounts.
+initClientErrorReporting()
+
+function CrashFallback(props: { err: Accessor<unknown>; reset: () => void }) {
+  let getErr = () => props.err()
+  let getMessage = (): string => {
+    let e = getErr()
+    if (e instanceof Error) return e.message === '' ? e.name : e.message
+    return String(e)
+  }
+  onSettled(() => {
+    reportClientError(getErr(), 'error-boundary')
+  })
+  function reload(): void {
+    location.reload()
+  }
+  return (
+    <div class='error' role='alert'>
+      <span>Something broke: {getMessage()}. The error was sent to the server log.</span>
+      <button type='button' class='btn btn-secondary' onClick={() => props.reset()}>
+        Retry
+      </button>
+      <button type='button' class='btn btn-secondary' onClick={reload}>
+        Reload
+      </button>
+    </div>
+  )
+}
 
 // Same-origin /ws by default so a deployed single-service build just works.
 // Local dev overrides it via .env.development ( Vite dev server has no /ws ).
@@ -278,31 +310,33 @@ export default function App() {
 
   return (
     <div class='app'>
-      <Show when={mode().kind === 'menu'}>
-        <MenuScreen
-          initialRoom={lastRoom.value()}
-          onLocal={playLocal}
-          onCreate={createRoom}
-          onJoin={joinRoom}
-          onComputer={playComputer}
-        />
-      </Show>
-      <Show when={mode().kind === 'local'}>
-        <LocalSession />
-      </Show>
-      <Show when={computerOpts()} keyed>
-        {(c) => <ComputerSession color={c.color} level={c.level} />}
-      </Show>
-      <Show when={onlineOpts()}>
-        {(opts) => (
-          <OnlineDriver
-            create={opts().create}
-            room={opts().room}
-            onLeave={toMenu}
-            onRoomKnown={(code) => lastRoom.save(code)}
+      <Errored fallback={(err, reset) => <CrashFallback err={err} reset={reset} />}>
+        <Show when={mode().kind === 'menu'}>
+          <MenuScreen
+            initialRoom={lastRoom.value()}
+            onLocal={playLocal}
+            onCreate={createRoom}
+            onJoin={joinRoom}
+            onComputer={playComputer}
           />
-        )}
-      </Show>
+        </Show>
+        <Show when={mode().kind === 'local'}>
+          <LocalSession />
+        </Show>
+        <Show when={computerOpts()} keyed>
+          {(c) => <ComputerSession color={c.color} level={c.level} />}
+        </Show>
+        <Show when={onlineOpts()}>
+          {(opts) => (
+            <OnlineDriver
+              create={opts().create}
+              room={opts().room}
+              onLeave={toMenu}
+              onRoomKnown={(code) => lastRoom.save(code)}
+            />
+          )}
+        </Show>
+      </Errored>
     </div>
   )
 }

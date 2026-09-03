@@ -3,10 +3,61 @@ import { fileURLToPath } from 'node:url'
 import type { ServerWebSocket } from 'bun'
 
 import type { ServerMsg } from '../src/net-protocol'
+import { MAX_CLIENT_ERROR_BYTES, parseClientErrorReport } from './client-errors'
+import { logError, logInfo, logWarn } from './logger'
 import { leaveRoom, reduceRooms } from './rooms'
 import type { Reply, RoomBook, Seat } from './rooms'
 
 type Ws = ServerWebSocket<{ token: string; seat: Seat | null }>
+
+let processHandlersInstalled = false
+
+function installProcessErrorHandlers(): void {
+  if (processHandlersInstalled) return
+  processHandlersInstalled = true
+  process.on('uncaughtException', (err) => {
+    logError('uncaughtException', { message: String(err) })
+  })
+  process.on('unhandledRejection', (reason) => {
+    logError('unhandledRejection', { message: String(reason) })
+  })
+}
+
+async function handleClientErrorReport(req: Request): Promise<Response> {
+  let declared = req.headers.get('content-length')
+  if (declared !== null && Number(declared) > MAX_CLIENT_ERROR_BYTES) {
+    return new Response('Payload too large', { status: 413 })
+  }
+  let text: string
+  try {
+    text = await req.text()
+  } catch {
+    return new Response('Bad request', { status: 400 })
+  }
+  if (text.length > MAX_CLIENT_ERROR_BYTES) {
+    return new Response('Payload too large', { status: 413 })
+  }
+  let raw: unknown
+  try {
+    raw = JSON.parse(text) as unknown
+  } catch {
+    return new Response('Bad request', { status: 400 })
+  }
+  let report = parseClientErrorReport(raw)
+  if (report === null) {
+    return new Response('Bad request', { status: 400 })
+  }
+  logError('client-error', {
+    message: report.message.slice(0, 500),
+    context: report.context ?? null,
+    url: report.url ?? null,
+    userAgent: report.userAgent ?? null,
+  })
+  if (report.stack !== undefined) {
+    logError('client-error-stack', { message: report.stack.slice(0, 2000) })
+  }
+  return new Response(null, { status: 204 })
+}
 
 // dist/client is resolved from this file, not from CWD, so the server works
 // from any working directory (repo root locally, /app in Docker).
@@ -15,6 +66,7 @@ let clientDir = fileURLToPath(new URL('../dist/client/', import.meta.url))
 // Thin transport: upgrades sockets, routes JSON to the pure rooms reducer
 // and delivers its replies. All game rules live in rooms.ts.
 export function startServer(port: number): { stop: () => void; port: number } {
+  installProcessErrorHandlers()
   let book: RoomBook = new Map()
   let sockets = new Map<string, Ws>()
   let nextToken = 1
@@ -63,6 +115,7 @@ export function startServer(port: number): { stop: () => void; port: number } {
       try {
         text = new TextDecoder().decode(message as Uint8Array)
       } catch {
+        logWarn('ws-bad-frame', { token: ws.data.token })
         deliver(ws, { type: 'error', message: 'Invalid message format' })
         return
       }
@@ -71,14 +124,20 @@ export function startServer(port: number): { stop: () => void; port: number } {
     try {
       data = JSON.parse(text) as unknown
     } catch {
+      logWarn('ws-bad-json', { token: ws.data.token })
       deliver(ws, { type: 'error', message: 'Invalid message format' })
       return
     }
     let heartbeat = handleHeartbeat(ws, data)
     if (heartbeat === true) return
-    let out = reduceRooms(book, ws.data.token, ws.data.seat, data)
-    ws.data.seat = out.sender
-    dispatch(ws, out.replies)
+    try {
+      let out = reduceRooms(book, ws.data.token, ws.data.seat, data)
+      ws.data.seat = out.sender
+      dispatch(ws, out.replies)
+    } catch (err) {
+      logError('ws-handler-crash', { token: ws.data.token, message: String(err) })
+      deliver(ws, { type: 'error', message: 'Internal error' })
+    }
   }
 
   function handleClose(ws: Ws): void {
@@ -98,6 +157,12 @@ export function startServer(port: number): { stop: () => void; port: number } {
     },
     fetch: async (req, server) => {
       let url = new URL(req.url)
+      if (url.pathname === '/api/client-errors') {
+        if (req.method !== 'POST') {
+          return new Response('Method not allowed', { status: 405 })
+        }
+        return handleClientErrorReport(req)
+      }
       if (url.pathname === '/ws') {
         let token = 't' + String(nextToken)
         nextToken = nextToken + 1
@@ -105,6 +170,7 @@ export function startServer(port: number): { stop: () => void; port: number } {
         if (ok) {
           return undefined
         }
+        logError('ws-upgrade-failed')
         return new Response('Upgrade failed', { status: 500 })
       }
       // Single-page app: navigation serves index.html, unknown asset paths 404.
@@ -126,22 +192,24 @@ export function startServer(port: number): { stop: () => void; port: number } {
       sendPings: true,
       open(ws: Ws) {
         sockets.set(ws.data.token, ws)
+        logInfo('ws-open', { token: ws.data.token })
       },
       message(ws: Ws, message: string | Buffer) {
         handleMessage(ws, message)
       },
       close(ws: Ws) {
+        logInfo('ws-close', { token: ws.data.token })
         handleClose(ws)
       },
     },
   })
   let boundPort = server.port ?? port
+  logInfo('server-ready', { port: boundPort })
   return { stop: () => server.stop(), port: boundPort }
 }
 
 if (import.meta.main) {
   // Railway injects PORT; WS_PORT stays for local runs.
   let port = Number(process.env.PORT ?? process.env.WS_PORT ?? 3001)
-  let srv = startServer(port)
-  console.log('WS server ready on ' + String(srv.port))
+  startServer(port)
 }

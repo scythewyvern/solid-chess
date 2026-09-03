@@ -410,3 +410,30 @@ test('bad JSON gets an invalid-format error', async () => {
   let err = await nextMsg(white, isError)
   expect(err).toEqual({ type: 'error', message: 'Invalid message format' })
 })
+
+test('client-errors endpoint accepts reports and rejects bad input', async () => {
+  let base = 'http://127.0.0.1:' + String(port) + '/api/client-errors'
+  let ok = await fetch(base, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message: 'boom', context: 'test' }),
+  })
+  expect(ok.status).toBe(204)
+
+  let bad = await fetch(base, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nope: true }),
+  })
+  expect(bad.status).toBe(400)
+
+  let wrongMethod = await fetch(base)
+  expect(wrongMethod.status).toBe(405)
+
+  let huge = await fetch(base, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message: 'x'.repeat(9000) }),
+  })
+  expect(huge.status).toBe(413)
+})
