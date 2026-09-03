@@ -2,6 +2,8 @@ import { createEffect, createMemo, createSignal, Show } from 'solid-js'
 
 import { GameView } from './game-view'
 import { MenuScreen } from './menu-screen'
+import type { ComputerChoice } from './menu-screen'
+import { useComputerGame } from './use-computer-game'
 import { useConfirm } from './use-confirm'
 import { useLastRoom } from './use-last-room'
 import { useLocalGame } from './use-local-game'
@@ -14,6 +16,7 @@ import './styles.css'
 type Mode =
   | { kind: 'menu' }
   | { kind: 'local' }
+  | { kind: 'computer'; color: ComputerChoice['color']; level: ComputerChoice['level'] }
   | { kind: 'online'; create: boolean; room: string }
 
 let WS_URL: string = import.meta.env.VITE_WS_URL ?? defaultWsUrl()
@@ -44,6 +47,38 @@ function LocalSession() {
             onClick={local.undo}
             disabled={local.canUndo() === false}
             title={local.canUndo() ? 'Take back the last move' : 'Nothing to undo yet'}
+          >
+            Undo move
+          </button>
+        </>
+      }
+    />
+  )
+}
+
+function ComputerSession(props: {
+  color: ComputerChoice['color']
+  level: ComputerChoice['level']
+}) {
+  let game = useComputerGame({
+    human: () => props.color,
+    level: () => props.level,
+  })
+
+  return (
+    <GameView
+      driver={game.driver}
+      footer={
+        <>
+          <button type='button' class='btn' onClick={game.restart}>
+            New game
+          </button>
+          <button
+            type='button'
+            class='btn btn-secondary'
+            onClick={game.undo}
+            disabled={game.canUndo() === false}
+            title={game.canUndo() ? 'Take back your last move' : 'Nothing to undo yet'}
           >
             Undo move
           </button>
@@ -215,8 +250,17 @@ export default function App() {
     return m.kind === 'online' ? { create: m.create, room: m.room } : null
   })
 
+  let computerOpts = createMemo(() => {
+    let m = mode()
+    return m.kind === 'computer' ? { color: m.color, level: m.level } : null
+  })
+
   function playLocal() {
     setMode({ kind: 'local' })
+  }
+
+  function playComputer(choice: ComputerChoice) {
+    setMode({ kind: 'computer', color: choice.color, level: choice.level })
   }
 
   function createRoom() {
@@ -240,10 +284,14 @@ export default function App() {
           onLocal={playLocal}
           onCreate={createRoom}
           onJoin={joinRoom}
+          onComputer={playComputer}
         />
       </Show>
       <Show when={mode().kind === 'local'}>
         <LocalSession />
+      </Show>
+      <Show when={computerOpts()} keyed>
+        {(c) => <ComputerSession color={c.color} level={c.level} />}
       </Show>
       <Show when={onlineOpts()}>
         {(opts) => (
