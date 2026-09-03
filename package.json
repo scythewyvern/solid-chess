@@ -1,0 +1,33 @@
+{
+  "name": "solid-chess",
+  "version": "0.1.0",
+  "description": "Playable chess: framework-free rules engine, SolidJS UI with drag-and-drop, online multiplayer over WebSockets.",
+  "author": "scythewyvern",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scythewyvern/solid-chess.git"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server": "bun run server/ws-server.ts"
+  },
+  "dependencies": {
+    "@radix-ui/colors": "^3.0.0",
+    "@solid-primitives/drag-drop": "^0.1.0-next.0",
+    "@solidjs/web": "^2.0.0-rc.4",
+    "solid-js": "^2.0.0-rc.4"
+  },
+  "devDependencies": {
+    "@solidjs/diagnostics": "^2.0.0-rc.2",
+    "@solidjs/vite-plugin": "^3.0.0-next.36",
+    "oxfmt": "^0.65.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2",
+    "vite-plugin-icons-spritesheet": "^3.1.0"
+  }
+}
