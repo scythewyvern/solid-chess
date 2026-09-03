@@ -4,3 +4,5 @@ dist
 docs
 .zed
 *.log
+*.md
+LICENSE
