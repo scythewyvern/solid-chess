@@ -21,13 +21,21 @@ export interface OnlineGame {
   disconnect: () => void
 }
 
-export function useOnlineGame(url: string, opts: { create: boolean; room?: string }): OnlineGame {
+export interface OnlineOpts {
+  create: () => boolean
+  room: () => string
+}
+
+export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   let [game, setGame] = createSignal<GameState>(initialGameState())
   let [color, setColor] = createSignal<Color | null>(null)
   let [connected, setConnected] = createSignal(false)
   let [opponent, setOpponent] = createSignal(false)
   let [result, setResult] = createSignal<ResignResult | null>(null)
-  let [rematch, setRematch] = createSignal<Record<Color, boolean>>({ white: false, black: false })
+  let [rematch, setRematch] = createSignal<Record<Color, boolean>>({
+    white: false,
+    black: false,
+  })
   let [room, setRoom] = createSignal('')
   let [error, setError] = createSignal<string | null>(null)
   let [history, setHistory] = createSignal<Move[]>([])
@@ -45,10 +53,10 @@ export function useOnlineGame(url: string, opts: { create: boolean; room?: strin
 
   ws.onopen = () => {
     setConnected(true)
-    if (opts.create) {
+    if (opts.create()) {
       send({ type: 'create' })
     } else {
-      send({ type: 'join', room: opts.room ?? '' })
+      send({ type: 'join', room: opts.room() })
     }
   }
   ws.onclose = () => setConnected(false)

@@ -33,8 +33,8 @@ html {
 
 :root {
   --cell-size: clamp(40px, 10vw, 100px);
-  --cell-black: var(--brown-10);
-  --cell-white: var(--brown-6);
+  --cell-black: var(--gray-11);
+  --cell-white: var(--gray-7);
 
   --surface: color-mix(in srgb, var(--slate-3) 78%, transparent);
   --surface-2: color-mix(in srgb, var(--slate-4) 72%, transparent);
@@ -84,7 +84,6 @@ html {
   grid-template-rows: repeat(8, 1fr);
   width: calc(var(--cell-size) * 8);
   height: calc(var(--cell-size) * 8);
-  border-radius: 8px;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;

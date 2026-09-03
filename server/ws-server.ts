@@ -1,9 +1,10 @@
-import type { ServerWebSocket } from 'bun'
 import { fileURLToPath } from 'node:url'
 
+import type { ServerWebSocket } from 'bun'
+
+import type { ServerMsg } from '../src/net-protocol'
 import { leaveRoom, reduceRooms } from './rooms'
 import type { Reply, RoomBook, Seat } from './rooms'
-import type { ServerMsg } from '../src/net-protocol'
 
 type Ws = ServerWebSocket<{ token: string; seat: Seat | null }>
 
@@ -90,7 +91,10 @@ export function startServer(port: number): { stop: () => void; port: number } {
         return new Response('Upgrade failed', { status: 500 })
       }
       // Single-page app: navigation serves index.html, unknown asset paths 404.
-      if (req.method === 'GET' && (url.pathname === '/' || url.pathname.includes('.') === false)) {
+      if (
+        req.method === 'GET' &&
+        (url.pathname === '/' || url.pathname.includes('.') === false)
+      ) {
         let index = Bun.file(clientDir + 'index.html')
         if (await index.exists()) {
           return new Response(index)
@@ -114,7 +118,8 @@ export function startServer(port: number): { stop: () => void; port: number } {
       },
     },
   })
-  return { stop: () => server.stop(), port: server.port }
+  let boundPort = server.port ?? port
+  return { stop: () => server.stop(), port: boundPort }
 }
 
 if (import.meta.main) {

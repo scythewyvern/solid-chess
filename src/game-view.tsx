@@ -1,21 +1,21 @@
 import { createDragContext } from '@solid-primitives/drag-drop'
 import { createMemo, For, Show } from 'solid-js'
-import type { JSX } from '@solidjs/web'
+import type { ParentProps } from 'solid-js'
 
 import type { PieceType } from './engine'
 import { squareName } from './engine'
 import type { GameDriver } from './game-driver'
 import type { IconName } from './icon/icons'
+import { PIECE_NAMES } from './labels'
 import { PieceIcon } from './piece-icon'
 import { SquareCell } from './square-cell'
 import { useFlyAnimation } from './use-fly-animation'
 import { useGameMeta } from './use-game-meta'
 import { useMoveInput } from './use-move-input'
-import { PIECE_NAMES } from './labels'
 
-export interface GameViewProps {
+export interface GameViewProps extends ParentProps {
   driver: GameDriver
-  footer: JSX.Element
+  footer: ParentProps['children']
 }
 
 let PROMO_CHOICES: PieceType[] = ['queen', 'rook', 'bishop', 'knight']
@@ -23,13 +23,24 @@ let PROMO_CHOICES: PieceType[] = ['queen', 'rook', 'bishop', 'knight']
 // Board screen composed from a driver (local or online) and small hooks.
 // No game rules here — only wiring between state, input and layout.
 export function GameView(props: GameViewProps) {
-  let driver = props.driver
-  let meta = useGameMeta(driver.game, driver.history)
-  let fly = useFlyAnimation(driver.game, driver.history, driver.orientation)
-  let input = useMoveInput(driver, () => fly.suppressNext())
+  let meta = useGameMeta(
+    () => props.driver.game(),
+    () => props.driver.history()
+  )
+  let fly = useFlyAnimation(
+    () => props.driver.game(),
+    () => props.driver.history(),
+    () => props.driver.orientation()
+  )
+  let input = useMoveInput(
+    () => props.driver,
+    () => fly.suppressNext()
+  )
 
   let order = createMemo<number[]>(() => {
-    return driver.orientation() === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
+    return props.driver.orientation() === 'white'
+      ? [0, 1, 2, 3, 4, 5, 6, 7]
+      : [7, 6, 5, 4, 3, 2, 1, 0]
   })
 
   let dnd = createDragContext({
@@ -57,9 +68,9 @@ export function GameView(props: GameViewProps) {
                       <SquareCell
                         row={row}
                         col={col}
-                        game={driver.game}
-                        canControl={driver.canControl}
-                        inputLocked={driver.inputLocked}
+                        game={() => props.driver.game()}
+                        canControl={(color) => props.driver.canControl(color)}
+                        inputLocked={() => props.driver.inputLocked()}
                         gameOngoing={() => meta.status().status === 'ongoing'}
                         promoOpen={() => input.promo() !== null}
                         selected={input.selected}
@@ -80,16 +91,21 @@ export function GameView(props: GameViewProps) {
             <Show when={fly.fly() !== null}>
               <div class='fly-layer' aria-hidden='true' onAnimationEnd={fly.clear}>
                 <For each={fly.fly() ?? []}>
-                  {(f) => (
-                    <div
-                      class='fly-piece'
-                      style={`--fr:${fly.display(f.from.row)};--fc:${fly.display(f.from.col)};--dx:${fly.display(f.to.col) - fly.display(f.from.col)};--dy:${fly.display(f.to.row) - fly.display(f.from.row)}`}
-                    >
-                      <span class='piece'>
-                        <PieceIcon name={`${f.color}-${f.type}` as IconName} />
-                      </span>
-                    </div>
-                  )}
+                  {(f) => {
+                    let vars = {
+                      '--fr': fly.display(f.from.row),
+                      '--fc': fly.display(f.from.col),
+                      '--dx': fly.display(f.to.col) - fly.display(f.from.col),
+                      '--dy': fly.display(f.to.row) - fly.display(f.from.row),
+                    }
+                    return (
+                      <div class='fly-piece' style={vars}>
+                        <span class='piece'>
+                          <PieceIcon name={`${f.color}-${f.type}` as IconName} />
+                        </span>
+                      </div>
+                    )
+                  }}
                 </For>
               </div>
             </Show>
@@ -98,7 +114,9 @@ export function GameView(props: GameViewProps) {
             {(pending) => (
               <div class='promo-overlay' role='dialog' aria-label='Choose a promotion piece'>
                 <div class='promo-box'>
-                  <div class='promo-title'>Promotion on {squareName(pending().to)} — choose a piece</div>
+                  <div class='promo-title'>
+                    Promotion on {squareName(pending().to)} — choose a piece
+                  </div>
                   <div class='promo-choices'>
                     <For each={PROMO_CHOICES}>
                       {(type) => (
@@ -110,7 +128,7 @@ export function GameView(props: GameViewProps) {
                         >
                           <span class='piece'>
                             <PieceIcon
-                              name={`${driver.game().turn}-${type}` as IconName}
+                              name={`${props.driver.game().turn}-${type}` as IconName}
                             />
                           </span>
                           <span>{PIECE_NAMES[type]}</span>
@@ -133,15 +151,18 @@ export function GameView(props: GameViewProps) {
       </dnd.Provider>
       <aside class='panel'>
         <div class='status' aria-live='polite'>
-          {(() => {
-            let dot = driver.turnDot()
-            if (dot === null) return null
-            return <span class={`turn-dot ${dot}`} aria-hidden='true' />
-          })()}
-          <span>{driver.statusText()}</span>
+          <Show when={props.driver.turnDot()} keyed={false}>
+            {(dot) => {
+              let color = dot()
+              return color !== null ? (
+                <span class={['turn-dot', color]} aria-hidden='true' />
+              ) : null
+            }}
+          </Show>
+          <span>{props.driver.statusText()}</span>
         </div>
-        <Show when={driver.presence() !== null}>
-          <div class='presence'>{driver.presence()}</div>
+        <Show when={props.driver.presence() !== null}>
+          <div class='presence'>{props.driver.presence()}</div>
         </Show>
         <div class='material' aria-label='Material'>
           <div class='material-title'>
@@ -195,7 +216,7 @@ export function GameView(props: GameViewProps) {
         </div>
         <div class='controls'>{props.footer}</div>
         <div class='hint'>Drag pieces with mouse, touch, or keyboard (Space + arrows).</div>
-        <Show when={driver.history().length > 0}>
+        <Show when={props.driver.history().length > 0}>
           <div class='history-wrap'>
             <div class='section-label'>Moves</div>
             <ol class='history-table'>

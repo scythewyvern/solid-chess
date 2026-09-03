@@ -41,7 +41,11 @@ export function useGameMeta(game: Accessor<GameState>, history: Accessor<Move[]>
     while (i < h.length) {
       let w = h[i] as Move
       let b = h[i + 1] as Move | undefined
-      rows.push({ n: i / 2 + 1, white: moveLabel(w), black: b === undefined ? '' : moveLabel(b) })
+      rows.push({
+        n: i / 2 + 1,
+        white: moveLabel(w),
+        black: b === undefined ? '' : moveLabel(b),
+      })
       i = i + 2
     }
     return rows
@@ -50,5 +54,14 @@ export function useGameMeta(game: Accessor<GameState>, history: Accessor<Move[]>
   let takenByWhite = createMemo(() => capturedPieces(game().board, 'white'))
   let takenByBlack = createMemo(() => capturedPieces(game().board, 'black'))
 
-  return { status, inCheck, checkSquare, lastMove, movePairs, score, takenByWhite, takenByBlack }
+  return {
+    status,
+    inCheck,
+    checkSquare,
+    lastMove,
+    movePairs,
+    score,
+    takenByWhite,
+    takenByBlack,
+  }
 }

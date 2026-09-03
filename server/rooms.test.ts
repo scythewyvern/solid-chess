@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { Move } from '../src/engine'
+import type { RoomMsg, ServerMsg, StateMsg } from '../src/net-protocol'
 import { leaveRoom, reduceRooms } from './rooms'
-import type { RoomBook, Seat } from './rooms'
-import type { RoomMsg, StateMsg } from '../src/net-protocol'
+import type { Reply, RoomBook, Seat } from './rooms'
 
 function freshBook(): RoomBook {
   return new Map()
@@ -25,7 +25,7 @@ function createRoom(book: RoomBook, token: string) {
   return reduceRooms(book, token, null, { type: 'create' })
 }
 
-function findMsg(replies: Array<{ msg: { type: string } }>, type: string) {
+function findMsg(replies: Reply[], type: string): ServerMsg | undefined {
   return replies.map((r) => r.msg).find((m) => m.type === type)
 }
 
@@ -64,7 +64,9 @@ describe('rooms reducer', () => {
     reduceRooms(book, 'b', null, { type: 'join', room: code })
     let whiteSeat: Seat = { room: code, color: 'white', token: 'a' }
     let out = reduceRooms(book, 'a', whiteSeat, { type: 'move', move: mv('e2', 'e4') })
-    let states = out.replies.map((r) => r.msg).filter((m) => m.type === 'state') as Array<StateMsg>
+    let states = out.replies
+      .map((r) => r.msg)
+      .filter((m) => m.type === 'state') as Array<StateMsg>
     expect(states).toHaveLength(2)
     let yours = states.map((s) => s.you).sort()
     expect(yours).toEqual(['black', 'white'])
@@ -82,12 +84,24 @@ describe('rooms reducer', () => {
     reduceRooms(book, 'b', null, { type: 'join', room: code })
     let black: Seat = { room: code, color: 'black', token: 'b' }
     let early = reduceRooms(book, 'b', black, { type: 'move', move: mv('e7', 'e5') })
-    expect(findMsg(early.replies, 'error')).toEqual({ type: 'error', message: 'Not your turn' })
+    expect(findMsg(early.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Not your turn',
+    })
     let white: Seat = { room: code, color: 'white', token: 'a' }
     let foreign = reduceRooms(book, 'a', white, { type: 'move', move: mv('e7', 'e5') })
-    expect(findMsg(foreign.replies, 'error')).toEqual({ type: 'error', message: 'Illegal move' })
-    let malformed = reduceRooms(book, 'a', white, { type: 'move', move: { from: 'e2', to: 'e4' } })
-    expect(findMsg(malformed.replies, 'error')).toEqual({ type: 'error', message: 'Illegal move' })
+    expect(findMsg(foreign.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Illegal move',
+    })
+    let malformed = reduceRooms(book, 'a', white, {
+      type: 'move',
+      move: { from: 'e2', to: 'e4' },
+    })
+    expect(findMsg(malformed.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Illegal move',
+    })
   })
 
   test('resign ends the game and blocks further moves', () => {
@@ -116,7 +130,9 @@ describe('rooms reducer', () => {
     expect(firstState.rematch).toEqual({ white: true, black: false })
     let second = reduceRooms(book, 'b', black, { type: 'rematch' })
     expect(second.sender).toEqual({ room: code, color: 'white', token: 'b' })
-    let rooms = second.replies.map((r) => r.msg).filter((m) => m.type === 'room') as Array<RoomMsg>
+    let rooms = second.replies
+      .map((r) => r.msg)
+      .filter((m) => m.type === 'room') as Array<RoomMsg>
     expect(rooms.find((m) => m.color === 'white')).toBeDefined()
     let fresh = findMsg(second.replies, 'state') as StateMsg
     expect(fresh.game.board[6][4]).toEqual({ type: 'pawn', color: 'white' })
@@ -140,9 +156,15 @@ describe('rooms reducer', () => {
 
   test('garbage messages get an unknown-message error', () => {
     let book = freshBook()
-    let out = reduceRooms(book, null, { type: 'dance' })
-    expect(findMsg(out.replies, 'error')).toEqual({ type: 'error', message: 'Unknown message' })
-    let out2 = reduceRooms(book, null, null)
-    expect(findMsg(out2.replies, 'error')).toEqual({ type: 'error', message: 'Unknown message' })
+    let out = reduceRooms(book, 'x', null, { type: 'dance' })
+    expect(findMsg(out.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Unknown message',
+    })
+    let out2 = reduceRooms(book, 'x', null, null)
+    expect(findMsg(out2.replies, 'error')).toEqual({
+      type: 'error',
+      message: 'Unknown message',
+    })
   })
 })

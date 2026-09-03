@@ -21,16 +21,20 @@ export function MenuScreen(props: MenuScreenProps) {
     <div class='menu'>
       <h1 class='menu-title'>Chess</h1>
       <div class='menu-row'>
-        <button type='button' class='btn' onClick={props.onLocal}>
+        <button type='button' class='btn' onClick={() => props.onLocal()}>
           Two players
         </button>
-        <button type='button' class='btn btn-secondary' onClick={() => setShowOnline((v) => !v)}>
+        <button
+          type='button'
+          class='btn btn-secondary'
+          onClick={() => setShowOnline((v) => !v)}
+        >
           Play online
         </button>
       </div>
       <Show when={showOnline()}>
         <div class='menu-row'>
-          <button type='button' class='btn btn-secondary' onClick={props.onCreate}>
+          <button type='button' class='btn btn-secondary' onClick={() => props.onCreate()}>
             Create room
           </button>
         </div>

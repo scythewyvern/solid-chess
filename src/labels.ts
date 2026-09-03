@@ -19,11 +19,18 @@ export let COLOR_NAMES: Record<Color, string> = {
 
 export function moveLabel(move: Move): string {
   return (
-    squareName(move.from) + ' → ' + squareName(move.to) + (move.promotion ? `=${move.promotion}` : '')
+    squareName(move.from) +
+    ' → ' +
+    squareName(move.to) +
+    (move.promotion ? `=${move.promotion}` : '')
   )
 }
 
-export function squareAriaLabel(square: Square, piece: Piece | null, isTarget: boolean): string {
+export function squareAriaLabel(
+  square: Square,
+  piece: Piece | null,
+  isTarget: boolean
+): string {
   let name = squareName(square)
   if (piece === null) {
     return isTarget ? `Move to ${name}` : name

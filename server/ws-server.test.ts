@@ -1,9 +1,16 @@
 import { afterAll, beforeAll, test, expect } from 'bun:test'
-import { startServer } from './ws-server'
-import { getGameStatus, initialGameState, parseSquare, type GameState, type Move } from '../src/engine'
-import type { ServerMsg } from '../src/net-protocol'
 
-let srv: { stop: () => void, port: number } | null = null
+import {
+  getGameStatus,
+  initialGameState,
+  parseSquare,
+  type GameState,
+  type Move,
+} from '../src/engine'
+import type { ServerMsg } from '../src/net-protocol'
+import { startServer } from './ws-server'
+
+let srv: { stop: () => void; port: number } | null = null
 let port = 0
 let allSockets: Array<WebSocket> = []
 let inboxes = new Map<WebSocket, Array<ServerMsg>>()
@@ -62,7 +69,11 @@ function drain(ws: WebSocket): void {
   }
 }
 
-function nextMsg(ws: WebSocket, predicate?: (msg: ServerMsg) => boolean, timeout = 5000): Promise<ServerMsg> {
+function nextMsg(
+  ws: WebSocket,
+  predicate?: (msg: ServerMsg) => boolean,
+  timeout = 5000
+): Promise<ServerMsg> {
   let q = inboxes.get(ws)
   if (q === undefined) {
     q = []
@@ -129,21 +140,28 @@ function connectClient(): Promise<WebSocket> {
         }
         q.push(parsed)
         drain(ws)
-      } catch {
-      }
+      } catch {}
     })
     let timer = setTimeout(() => {
       reject(new Error('connect timeout'))
     }, 5000)
-    ws.addEventListener('open', () => {
-      clearTimeout(timer)
-      allSockets.push(ws)
-      resolve(ws)
-    }, { once: true })
-    ws.addEventListener('error', () => {
-      clearTimeout(timer)
-      reject(new Error('connect error'))
-    }, { once: true })
+    ws.addEventListener(
+      'open',
+      () => {
+        clearTimeout(timer)
+        allSockets.push(ws)
+        resolve(ws)
+      },
+      { once: true }
+    )
+    ws.addEventListener(
+      'error',
+      () => {
+        clearTimeout(timer)
+        reject(new Error('connect error'))
+      },
+      { once: true }
+    )
   })
 }
 
@@ -171,7 +189,7 @@ function isError(m: ServerMsg): boolean {
   return m.type === 'error'
 }
 
-async function createRoom(): Promise<{ white: WebSocket, room: string }> {
+async function createRoom(): Promise<{ white: WebSocket; room: string }> {
   let white = await connectClient()
   send(white, { type: 'create' })
   let roomMsg = await nextMsg(white, isRoom)
@@ -226,8 +244,7 @@ afterAll(() => {
   for (let ws of allSockets) {
     try {
       ws.close()
-    } catch {
-    }
+    } catch {}
   }
   inboxes.clear()
   waiters.clear()
@@ -282,14 +299,14 @@ test('illegal move and wrong color move produce errors', async () => {
 test('scholars mate ends with checkmate', async () => {
   let { white, room } = await createRoom()
   let black = await joinRoom(white, room)
-  let moves: Array<{ ws: WebSocket, from: string, to: string }> = [
+  let moves: Array<{ ws: WebSocket; from: string; to: string }> = [
     { ws: white, from: 'e2', to: 'e4' },
     { ws: black, from: 'e7', to: 'e5' },
     { ws: white, from: 'f1', to: 'c4' },
     { ws: black, from: 'b8', to: 'c6' },
     { ws: white, from: 'd1', to: 'h5' },
     { ws: black, from: 'g8', to: 'f6' },
-    { ws: white, from: 'h5', to: 'f7' }
+    { ws: white, from: 'h5', to: 'f7' },
   ]
   let lastGame: GameState | null = null
   for (let mv of moves) {

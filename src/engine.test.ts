@@ -960,6 +960,10 @@ describe('boardsEqual and detectMove', () => {
   test('detects a promotion with the right piece', () => {
     let prev = custom({ board: withPieces([['e7', 'pawn', 'white']]) })
     let next = applyMove(prev, mv('e7', 'e8', 'queen'))
-    expect(detectMove(prev, next)).toEqual({ from: sq('e7'), to: sq('e8'), promotion: 'queen' })
+    expect(detectMove(prev, next)).toEqual({
+      from: sq('e7'),
+      to: sq('e8'),
+      promotion: 'queen',
+    })
   })
 })

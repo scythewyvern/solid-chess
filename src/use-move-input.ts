@@ -2,8 +2,7 @@ import { createMemo, createSignal } from 'solid-js'
 import type { Accessor } from 'solid-js'
 
 import { getGameStatus, legalMoves, parseSquare, sameSquare } from './engine'
-import type { Move, PieceType, Square } from './engine'
-import type { GameDriver } from './game-driver'
+import type { Color, GameState, Move, PieceType, Square } from './engine'
 
 export type TargetResolution = 'moved' | 'promo' | 'none'
 
@@ -24,16 +23,23 @@ export interface MoveInput {
   cancelPromo: () => void
 }
 
+export interface MoveDriver {
+  game: Accessor<GameState>
+  canControl: (color: Color) => boolean
+  inputLocked: () => boolean
+  submitMove: (from: Square, to: Square, promotion?: PieceType) => void
+}
+
 // Click and drag-and-drop orchestration over a driver. Both paths share
 // resolveTarget, so legality, promotion and gating behave identically.
-export function useMoveInput(driver: GameDriver, onDropMove: () => void): MoveInput {
+export function useMoveInput(driver: () => MoveDriver, onDropMove: () => void): MoveInput {
   let [selected, setSelected] = createSignal<Square | null>(null)
   let [promo, setPromo] = createSignal<PendingPromo | null>(null)
 
   let targets = createMemo<Move[]>(() => {
     let sel = selected()
     if (sel === null) return []
-    return legalMoves(driver.game(), sel)
+    return legalMoves(driver().game(), sel)
   })
 
   function clear() {
@@ -42,17 +48,21 @@ export function useMoveInput(driver: GameDriver, onDropMove: () => void): MoveIn
   }
 
   function submit(from: Square, to: Square, promotion?: PieceType) {
-    driver.submitMove(from, to, promotion)
+    driver().submitMove(from, to, promotion)
     clear()
   }
 
   function resolveTarget(from: Square, to: Square, viaDrop: boolean): TargetResolution {
-    if (getGameStatus(driver.game()).status !== 'ongoing') return 'none'
-    if (driver.inputLocked()) return 'none'
+    if (getGameStatus(driver().game()).status !== 'ongoing') return 'none'
+    if (driver().inputLocked()) return 'none'
     if (promo() !== null) return 'none'
-    let g = driver.game()
+    let g = driver().game()
     let mover = g.board[from.row][from.col]
-    if (mover === null || mover.color !== g.turn || driver.canControl(mover.color) === false) {
+    if (
+      mover === null ||
+      mover.color !== g.turn ||
+      driver().canControl(mover.color) === false
+    ) {
       return 'none'
     }
     let options = legalMoves(g, from).filter((m) => sameSquare(m.to, to))
@@ -70,9 +80,9 @@ export function useMoveInput(driver: GameDriver, onDropMove: () => void): MoveIn
   function tapSquare(square: Square) {
     let sel = selected()
     if (sel !== null && resolveTarget(sel, square, false) !== 'none') return
-    let g = driver.game()
+    let g = driver().game()
     let piece = g.board[square.row][square.col]
-    if (piece !== null && piece.color === g.turn && driver.canControl(piece.color)) {
+    if (piece !== null && piece.color === g.turn && driver().canControl(piece.color)) {
       setSelected((prev) => (prev !== null && sameSquare(prev, square) ? null : square))
     } else {
       setSelected(null)
@@ -93,11 +103,12 @@ export function useMoveInput(driver: GameDriver, onDropMove: () => void): MoveIn
 
   function grabSquare(name: string) {
     let from = parseSquare(name)
-    let g = driver.game()
+    let g = driver().game()
     if (getGameStatus(g).status !== 'ongoing') return
-    if (driver.inputLocked()) return
+    if (driver().inputLocked()) return
     let piece = g.board[from.row][from.col]
-    if (piece === null || piece.color !== g.turn || driver.canControl(piece.color) === false) return
+    if (piece === null || piece.color !== g.turn || driver().canControl(piece.color) === false)
+      return
     setSelected(from)
   }
 

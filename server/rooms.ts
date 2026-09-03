@@ -124,7 +124,12 @@ function handleCreate(book: RoomBook, token: string, sender: Seat | null): Reduc
   }
 }
 
-function handleJoin(book: RoomBook, token: string, sender: Seat | null, rawRoom: unknown): ReduceOutput {
+function handleJoin(
+  book: RoomBook,
+  token: string,
+  sender: Seat | null,
+  rawRoom: unknown
+): ReduceOutput {
   let code = normalizeRoomCode(rawRoom)
   if (code === null) return { sender, replies: errorReply('Room not found') }
   let room = book.get(code)
@@ -165,7 +170,8 @@ function handleMove(book: RoomBook, sender: Seat | null, rawMove: unknown): Redu
   if (sender === null) return { sender, replies: errorReply('You are not in a room') }
   let room = book.get(sender.room)
   if (room === undefined) return { sender, replies: errorReply('Room not found') }
-  if (seated(room, sender) === false) return { sender, replies: errorReply('You are not in a room') }
+  if (seated(room, sender) === false)
+    return { sender, replies: errorReply('You are not in a room') }
   if (room.result !== null) return { sender, replies: errorReply('Game is over') }
   if (room.game.turn !== sender.color) return { sender, replies: errorReply('Not your turn') }
   if (isMoveShape(rawMove) === false) return { sender, replies: errorReply('Illegal move') }
@@ -186,7 +192,8 @@ function handleResign(book: RoomBook, sender: Seat | null): ReduceOutput {
   if (sender === null) return { sender, replies: errorReply('You are not in a room') }
   let room = book.get(sender.room)
   if (room === undefined) return { sender, replies: errorReply('Room not found') }
-  if (seated(room, sender) === false) return { sender, replies: errorReply('You are not in a room') }
+  if (seated(room, sender) === false)
+    return { sender, replies: errorReply('You are not in a room') }
   room.result = { winner: opposite(sender.color), reason: 'resign' }
   return { sender, replies: stateReplies(room) }
 }
@@ -195,7 +202,8 @@ function handleRematch(book: RoomBook, sender: Seat | null): ReduceOutput {
   if (sender === null) return { sender, replies: errorReply('You are not in a room') }
   let room = book.get(sender.room)
   if (room === undefined) return { sender, replies: errorReply('Room not found') }
-  if (seated(room, sender) === false) return { sender, replies: errorReply('You are not in a room') }
+  if (seated(room, sender) === false)
+    return { sender, replies: errorReply('You are not in a room') }
   room.rematch[sender.color] = true
   if (room.rematch.white && room.rematch.black) {
     let whiteToken = room.seats.white
@@ -213,7 +221,11 @@ function handleRematch(book: RoomBook, sender: Seat | null): ReduceOutput {
     }
     return {
       sender: nextSender ?? sender,
-      replies: [...roomReplies(sender.room, room), ...stateReplies(room), ...presenceReplies(room)],
+      replies: [
+        ...roomReplies(sender.room, room),
+        ...stateReplies(room),
+        ...presenceReplies(room),
+      ],
     }
   }
   return { sender, replies: stateReplies(room) }
@@ -230,7 +242,12 @@ export function leaveRoom(book: RoomBook, sender: Seat | null): ReduceOutput {
   return { sender: null, replies: presenceReplies(room) }
 }
 
-export function reduceRooms(book: RoomBook, token: string, sender: Seat | null, raw: unknown): ReduceOutput {
+export function reduceRooms(
+  book: RoomBook,
+  token: string,
+  sender: Seat | null,
+  raw: unknown
+): ReduceOutput {
   if (typeof raw !== 'object' || raw === null) {
     return { sender, replies: errorReply('Unknown message') }
   }

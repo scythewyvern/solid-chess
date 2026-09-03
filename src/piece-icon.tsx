@@ -1,5 +1,5 @@
-import spriteHref from './icon/sprite.svg'
 import type { IconName } from './icon/icons'
+import spriteHref from './icon/sprite.svg'
 
 // Source SVGs are 45x45 with no viewBox, and the generated sprite symbols
 // keep it that way — without a viewBox the glyph never scales to its box.

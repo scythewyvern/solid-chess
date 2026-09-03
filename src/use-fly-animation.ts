@@ -18,13 +18,17 @@ export interface FlyAnimation {
 }
 
 function prefersReducedMotion(): boolean {
-  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  return (
+    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
 }
 
 function buildFly(move: Move, board: Board): FlyPiece[] | null {
   let piece = board[move.from.row][move.from.col]
   if (piece === null) return null
-  let out: FlyPiece[] = [{ from: move.from, to: move.to, color: piece.color, type: piece.type }]
+  let out: FlyPiece[] = [
+    { from: move.from, to: move.to, color: piece.color, type: piece.type },
+  ]
   if (
     piece.type === 'king' &&
     move.from.row === move.to.row &&
@@ -52,7 +56,7 @@ function buildFly(move: Move, board: Board): FlyPiece[] | null {
 export function useFlyAnimation(
   game: Accessor<GameState>,
   history: Accessor<Move[]>,
-  orientation: Accessor<Color>,
+  orientation: Accessor<Color>
 ): FlyAnimation {
   let [fly, setFly] = createSignal<FlyPiece[] | null>(null)
   let suppress = false
@@ -98,7 +102,7 @@ export function useFlyAnimation(
       suppress = false
       prevLen = h.length
       prevBoard = next.board
-    },
+    }
   )
 
   return { fly, suppressNext, clear, display }

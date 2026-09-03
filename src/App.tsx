@@ -6,9 +6,13 @@ import { useConfirm } from './use-confirm'
 import { useLastRoom } from './use-last-room'
 import { useLocalGame } from './use-local-game'
 import { useOnlineGame } from './use-online-game'
+
 import './styles.css'
 
-type Mode = { kind: 'menu' } | { kind: 'local' } | { kind: 'online'; create: boolean; room: string }
+type Mode =
+  | { kind: 'menu' }
+  | { kind: 'local' }
+  | { kind: 'online'; create: boolean; room: string }
 
 let WS_URL: string = import.meta.env.VITE_WS_URL ?? defaultWsUrl()
 
@@ -27,7 +31,7 @@ function LocalSession() {
   return (
     <GameView
       driver={local.driver}
-      footer={(
+      footer={
         <>
           <button type='button' class='btn' onClick={local.restart}>
             New game
@@ -42,7 +46,7 @@ function LocalSession() {
             Undo move
           </button>
         </>
-      )}
+      }
     />
   )
 }
@@ -54,11 +58,17 @@ function OnlineSession(props: {
   onRetry: () => void
   onRoomKnown: (code: string) => void
 }) {
-  let online = useOnlineGame(WS_URL, { create: props.create, room: props.room })
+  let online = useOnlineGame(WS_URL, {
+    create: () => props.create,
+    room: () => props.room,
+  })
   let [copied, setCopied] = createSignal(false)
   let resign = useConfirm(3000)
 
-  createEffect(() => online.room(), (room) => props.onRoomKnown(room))
+  createEffect(
+    () => online.room(),
+    (room) => props.onRoomKnown(room)
+  )
 
   function roomCode(): string {
     return online.room() !== '' ? online.room() : props.room
@@ -106,17 +116,17 @@ function OnlineSession(props: {
       <Show when={online.error() !== null}>
         <div class='error' role='alert'>
           <span>{online.error()}</span>
-          <button type='button' class='btn btn-secondary' onClick={props.onRetry}>
+          <button type='button' class='btn btn-secondary' onClick={() => props.onRetry()}>
             Retry
           </button>
-          <button type='button' class='btn btn-secondary' onClick={props.onLeave}>
+          <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
             Menu
           </button>
         </div>
       </Show>
       <GameView
         driver={online.driver}
-        footer={(
+        footer={
           <>
             <button
               type='button'
@@ -132,15 +142,17 @@ function OnlineSession(props: {
               class='btn btn-secondary'
               onClick={() => online.voteRematch()}
               disabled={ownVote()}
-              title={ownVote() ? 'Waiting for the opponent' : 'Start a new game with swapped colors'}
+              title={
+                ownVote() ? 'Waiting for the opponent' : 'Start a new game with swapped colors'
+              }
             >
               {rematchWaiting() ? 'Rematch (1/2)' : 'Rematch'}
             </button>
-            <button type='button' class='btn btn-secondary' onClick={props.onLeave}>
+            <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
               Leave room
             </button>
           </>
-        )}
+        }
       />
     </div>
   )

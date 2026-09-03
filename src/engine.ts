@@ -191,57 +191,40 @@ export function sameSquare(a: Square, b: Square): boolean {
   return a.row === b.row && a.col === b.col
 }
 
-export function isSquareAttacked(state: GameState, square: Square, byColor: Color): boolean {
-  let board: Board = state.board
+function pawnAttacksSquare(board: Board, square: Square, byColor: Color): boolean {
   let pawnRow: number = square.row + 1
   if (byColor === 'black') {
     pawnRow = square.row - 1
   }
-  if (inBounds(pawnRow, square.col - 1)) {
-    let pawnRowCells: Cell[] | undefined = board[pawnRow]
-    if (pawnRowCells !== undefined) {
-      let leftAttacker: Cell | undefined = pawnRowCells[square.col - 1]
-      if (
-        leftAttacker !== undefined &&
-        leftAttacker !== null &&
-        leftAttacker.type === 'pawn' &&
-        leftAttacker.color === byColor
-      ) {
-        return true
-      }
-    }
-  }
-  if (inBounds(pawnRow, square.col + 1)) {
-    let pawnRowCells2: Cell[] | undefined = board[pawnRow]
-    if (pawnRowCells2 !== undefined) {
-      let rightAttacker: Cell | undefined = pawnRowCells2[square.col + 1]
-      if (
-        rightAttacker !== undefined &&
-        rightAttacker !== null &&
-        rightAttacker.type === 'pawn' &&
-        rightAttacker.color === byColor
-      ) {
-        return true
-      }
-    }
-  }
-  let knightOffsets: Array<[number, number]> = [
-    [-2, -1],
-    [-2, 1],
-    [-1, -2],
-    [-1, 2],
-    [1, -2],
-    [1, 2],
-    [2, -1],
-    [2, 1],
-  ]
-  let ni: number = 0
-  while (ni < knightOffsets.length) {
-    let off: [number, number] | undefined = knightOffsets[ni]
-    ni = ni + 1
-    if (off === undefined) {
+  for (let dc of [-1, 1]) {
+    if (inBounds(pawnRow, square.col + dc) === false) {
       continue
     }
+    let rowCells: Cell[] | undefined = board[pawnRow]
+    if (rowCells === undefined) {
+      continue
+    }
+    let attacker: Cell | undefined = rowCells[square.col + dc]
+    if (
+      attacker !== undefined &&
+      attacker !== null &&
+      attacker.type === 'pawn' &&
+      attacker.color === byColor
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function leaperAttacksSquare(
+  board: Board,
+  square: Square,
+  byColor: Color,
+  type: 'knight' | 'king',
+  offsets: Array<[number, number]>
+): boolean {
+  for (let off of offsets) {
     let r: number = square.row + off[0]
     let c: number = square.col + off[1]
     if (inBounds(r, c) === false) {
@@ -255,11 +238,65 @@ export function isSquareAttacked(state: GameState, square: Square, byColor: Colo
     if (
       attacker !== undefined &&
       attacker !== null &&
-      attacker.type === 'knight' &&
+      attacker.type === type &&
       attacker.color === byColor
     ) {
       return true
     }
+  }
+  return false
+}
+
+function sliderAttacksSquare(
+  board: Board,
+  square: Square,
+  byColor: Color,
+  dirs: Array<[number, number]>,
+  types: Array<PieceType>
+): boolean {
+  for (let dir of dirs) {
+    let r: number = square.row + dir[0]
+    let c: number = square.col + dir[1]
+    while (inBounds(r, c)) {
+      let rowCells: Cell[] | undefined = board[r]
+      if (rowCells === undefined) {
+        break
+      }
+      let blocker: Cell | undefined = rowCells[c]
+      if (blocker === undefined) {
+        break
+      }
+      if (blocker === null) {
+        r = r + dir[0]
+        c = c + dir[1]
+        continue
+      }
+      if (blocker.color === byColor && types.includes(blocker.type)) {
+        return true
+      }
+      break
+    }
+  }
+  return false
+}
+
+export function isSquareAttacked(state: GameState, square: Square, byColor: Color): boolean {
+  let board: Board = state.board
+  if (pawnAttacksSquare(board, square, byColor)) {
+    return true
+  }
+  let knightOffsets: Array<[number, number]> = [
+    [-2, -1],
+    [-2, 1],
+    [-1, -2],
+    [-1, 2],
+    [1, -2],
+    [1, 2],
+    [2, -1],
+    [2, 1],
+  ]
+  if (leaperAttacksSquare(board, square, byColor, 'knight', knightOffsets)) {
+    return true
   }
   let kingOffsets: Array<[number, number]> = [
     [-1, -1],
@@ -271,31 +308,8 @@ export function isSquareAttacked(state: GameState, square: Square, byColor: Colo
     [1, 0],
     [1, 1],
   ]
-  let ki: number = 0
-  while (ki < kingOffsets.length) {
-    let koff: [number, number] | undefined = kingOffsets[ki]
-    ki = ki + 1
-    if (koff === undefined) {
-      continue
-    }
-    let r2: number = square.row + koff[0]
-    let c2: number = square.col + koff[1]
-    if (inBounds(r2, c2) === false) {
-      continue
-    }
-    let rowCells2: Cell[] | undefined = board[r2]
-    if (rowCells2 === undefined) {
-      continue
-    }
-    let attacker2: Cell | undefined = rowCells2[c2]
-    if (
-      attacker2 !== undefined &&
-      attacker2 !== null &&
-      attacker2.type === 'king' &&
-      attacker2.color === byColor
-    ) {
-      return true
-    }
+  if (leaperAttacksSquare(board, square, byColor, 'king', kingOffsets)) {
+    return true
   }
   let orthDirs: Array<[number, number]> = [
     [-1, 0],
@@ -303,34 +317,8 @@ export function isSquareAttacked(state: GameState, square: Square, byColor: Colo
     [0, -1],
     [0, 1],
   ]
-  let oi: number = 0
-  while (oi < orthDirs.length) {
-    let dir: [number, number] | undefined = orthDirs[oi]
-    oi = oi + 1
-    if (dir === undefined) {
-      continue
-    }
-    let r3: number = square.row + dir[0]
-    let c3: number = square.col + dir[1]
-    while (inBounds(r3, c3)) {
-      let rowCells3: Cell[] | undefined = board[r3]
-      if (rowCells3 === undefined) {
-        break
-      }
-      let blocker: Cell | undefined = rowCells3[c3]
-      if (blocker === undefined) {
-        break
-      }
-      if (blocker === null) {
-        r3 = r3 + dir[0]
-        c3 = c3 + dir[1]
-        continue
-      }
-      if (blocker.color === byColor && (blocker.type === 'rook' || blocker.type === 'queen')) {
-        return true
-      }
-      break
-    }
+  if (sliderAttacksSquare(board, square, byColor, orthDirs, ['rook', 'queen'])) {
+    return true
   }
   let diagDirs: Array<[number, number]> = [
     [-1, -1],
@@ -338,36 +326,7 @@ export function isSquareAttacked(state: GameState, square: Square, byColor: Colo
     [1, -1],
     [1, 1],
   ]
-  let di: number = 0
-  while (di < diagDirs.length) {
-    let dir2: [number, number] | undefined = diagDirs[di]
-    di = di + 1
-    if (dir2 === undefined) {
-      continue
-    }
-    let r4: number = square.row + dir2[0]
-    let c4: number = square.col + dir2[1]
-    while (inBounds(r4, c4)) {
-      let rowCells4: Cell[] | undefined = board[r4]
-      if (rowCells4 === undefined) {
-        break
-      }
-      let blocker2: Cell | undefined = rowCells4[c4]
-      if (blocker2 === undefined) {
-        break
-      }
-      if (blocker2 === null) {
-        r4 = r4 + dir2[0]
-        c4 = c4 + dir2[1]
-        continue
-      }
-      if (blocker2.color === byColor && (blocker2.type === 'bishop' || blocker2.type === 'queen')) {
-        return true
-      }
-      break
-    }
-  }
-  return false
+  return sliderAttacksSquare(board, square, byColor, diagDirs, ['bishop', 'queen'])
 }
 
 export function knightMoves(state: GameState, square: Square): Move[] {
@@ -647,6 +606,47 @@ export function kingSteps(state: GameState, square: Square): Move[] {
   return result
 }
 
+function pushPawnAdvance(moves: Move[], from: Square, to: Square, lastRow: number): void {
+  if (to.row !== lastRow) {
+    moves.push({ from: from, to: to })
+    return
+  }
+  let promos: PieceType[] = ['queen', 'rook', 'bishop', 'knight']
+  for (let promotion of promos) {
+    moves.push({ from: from, to: to, promotion: promotion })
+  }
+}
+
+function tryPawnEnPassant(
+  moves: Move[],
+  state: GameState,
+  square: Square,
+  dest: Square,
+  dc: number,
+  enemy: Color
+): void {
+  if (state.enPassant === null || sameSquare(dest, state.enPassant) === false) {
+    return
+  }
+  let capRow = square.row
+  let capCol = square.col + dc
+  if (inBounds(capRow, capCol) === false) {
+    return
+  }
+  let victim = state.board[capRow][capCol]
+  if (victim === null || victim.type !== 'pawn' || victim.color !== enemy) {
+    return
+  }
+  let landing = state.board[dest.row][dest.col]
+  if (landing !== null) {
+    return
+  }
+  moves.push({
+    from: { row: square.row, col: square.col },
+    to: { row: dest.row, col: dest.col },
+  })
+}
+
 export function pawnMoves(state: GameState, square: Square): Move[] {
   let moves: Move[] = []
   if (inBounds(square.row, square.col) === false) {
@@ -662,111 +662,92 @@ export function pawnMoves(state: GameState, square: Square): Move[] {
   let color = piece.color
   let enemy = opposite(color)
   let dr = -1
-  if (color === 'black') {
-    dr = 1
-  }
   let startRow = 6
-  if (color === 'black') {
-    startRow = 1
-  }
   let lastRow = 0
   if (color === 'black') {
+    dr = 1
+    startRow = 1
     lastRow = 7
   }
-  let fromRow = square.row
-  let fromCol = square.col
+  let from: Square = { row: square.row, col: square.col }
   let oneRow = square.row + dr
   if (inBounds(oneRow, square.col)) {
     let ahead = state.board[oneRow][square.col]
     if (ahead === null) {
-      if (oneRow === lastRow) {
-        moves.push({
-          from: { row: fromRow, col: fromCol },
-          to: { row: oneRow, col: square.col },
-          promotion: 'queen',
-        })
-        moves.push({
-          from: { row: fromRow, col: fromCol },
-          to: { row: oneRow, col: square.col },
-          promotion: 'rook',
-        })
-        moves.push({
-          from: { row: fromRow, col: fromCol },
-          to: { row: oneRow, col: square.col },
-          promotion: 'bishop',
-        })
-        moves.push({
-          from: { row: fromRow, col: fromCol },
-          to: { row: oneRow, col: square.col },
-          promotion: 'knight',
-        })
-      } else {
-        moves.push({ from: { row: fromRow, col: fromCol }, to: { row: oneRow, col: square.col } })
-        if (square.row === startRow) {
-          let twoRow = square.row + dr + dr
-          if (inBounds(twoRow, square.col)) {
-            let twoAhead = state.board[twoRow][square.col]
-            if (twoAhead === null) {
-              moves.push({
-                from: { row: fromRow, col: fromCol },
-                to: { row: twoRow, col: square.col },
-              })
-            }
-          }
+      pushPawnAdvance(moves, from, { row: oneRow, col: square.col }, lastRow)
+      if (square.row === startRow) {
+        let twoRow = square.row + dr + dr
+        if (inBounds(twoRow, square.col) && state.board[twoRow][square.col] === null) {
+          moves.push({ from: from, to: { row: twoRow, col: square.col } })
         }
       }
     }
   }
   let sides: Array<number> = [-1, 1]
-  let si = 0
-  while (si < sides.length) {
-    let dc = sides[si]
-    si = si + 1
-    if (dc === undefined) {
-      continue
-    }
+  for (let dc of sides) {
     let dest: Square = { row: oneRow, col: square.col + dc }
     if (inBounds(dest.row, dest.col) === false) {
       continue
     }
     let target = state.board[dest.row][dest.col]
     if (target !== null && target.color === enemy && target.type !== 'king') {
-      if (dest.row === lastRow) {
-        let promos: PieceType[] = ['queen', 'rook', 'bishop', 'knight']
-        let pi = 0
-        while (pi < promos.length) {
-          let promo = promos[pi]
-          pi = pi + 1
-          if (promo !== undefined) {
-            moves.push({
-              from: { row: fromRow, col: fromCol },
-              to: { row: dest.row, col: dest.col },
-              promotion: promo,
-            })
-          }
-        }
-      } else {
-        moves.push({ from: { row: fromRow, col: fromCol }, to: { row: dest.row, col: dest.col } })
-      }
+      pushPawnAdvance(moves, from, dest, lastRow)
     }
-    if (state.enPassant !== null && sameSquare(dest, state.enPassant)) {
-      let capRow = square.row
-      let capCol = square.col + dc
-      if (inBounds(capRow, capCol)) {
-        let victim = state.board[capRow][capCol]
-        if (victim !== null && victim.type === 'pawn' && victim.color === enemy) {
-          let landing = state.board[dest.row][dest.col]
-          if (landing === null) {
-            moves.push({
-              from: { row: fromRow, col: fromCol },
-              to: { row: dest.row, col: dest.col },
-            })
-          }
-        }
-      }
-    }
+    tryPawnEnPassant(moves, state, square, dest, dc, enemy)
   }
   return moves
+}
+
+function castleFlag(rights: CastlingRights, color: Color, kingside: boolean): boolean {
+  if (color === 'white') {
+    return kingside ? rights.whiteKingside : rights.whiteQueenside
+  }
+  return kingside ? rights.blackKingside : rights.blackQueenside
+}
+
+function castleSideMove(
+  state: GameState,
+  color: Color,
+  enemy: Color,
+  kingSquare: Square,
+  kingside: boolean
+): Move | null {
+  if (castleFlag(state.castling, color, kingside) === false) {
+    return null
+  }
+  let homeRow = 7
+  if (color === 'black') {
+    homeRow = 0
+  }
+  let rookCol = 7
+  if (kingside === false) {
+    rookCol = 0
+  }
+  let rook = state.board[homeRow][rookCol]
+  if (rook === null || rook.type !== 'rook' || rook.color !== color) {
+    return null
+  }
+  if (isSquareAttacked(state, kingSquare, enemy)) {
+    return null
+  }
+  let through: Array<number> = [5, 6]
+  let targetCol = 6
+  if (kingside === false) {
+    through = [3, 2]
+    targetCol = 2
+  }
+  for (let col of through) {
+    if (state.board[homeRow][col] !== null) {
+      return null
+    }
+    if (isSquareAttacked(state, { row: homeRow, col: col }, enemy)) {
+      return null
+    }
+  }
+  return {
+    from: { row: kingSquare.row, col: kingSquare.col },
+    to: { row: homeRow, col: targetCol },
+  }
 }
 
 export function castlingMoves(state: GameState, color: Color): Move[] {
@@ -776,64 +757,36 @@ export function castlingMoves(state: GameState, color: Color): Move[] {
     homeRow = 0
   }
   let king = state.board[homeRow][4]
-  if (king === null) {
-    return moves
-  }
-  if (king.type !== 'king') {
-    return moves
-  }
-  if (king.color !== color) {
+  if (king === null || king.type !== 'king' || king.color !== color) {
     return moves
   }
   let enemy = opposite(color)
   let kingSquare: Square = { row: homeRow, col: 4 }
-  let wantKingside = state.castling.whiteKingside
-  if (color === 'black') {
-    wantKingside = state.castling.blackKingside
+  let kingside = castleSideMove(state, color, enemy, kingSquare, true)
+  if (kingside !== null) {
+    moves.push(kingside)
   }
-  if (wantKingside) {
-    let rook = state.board[homeRow][7]
-    if (rook !== null && rook.type === 'rook' && rook.color === color) {
-      let f: Square = { row: homeRow, col: 5 }
-      let g: Square = { row: homeRow, col: 6 }
-      if (state.board[f.row][f.col] === null && state.board[g.row][g.col] === null) {
-        if (
-          isSquareAttacked(state, kingSquare, enemy) === false &&
-          isSquareAttacked(state, f, enemy) === false &&
-          isSquareAttacked(state, g, enemy) === false
-        ) {
-          moves.push({
-            from: { row: kingSquare.row, col: kingSquare.col },
-            to: { row: g.row, col: g.col },
-          })
-        }
-      }
-    }
-  }
-  let wantQueenside = state.castling.whiteQueenside
-  if (color === 'black') {
-    wantQueenside = state.castling.blackQueenside
-  }
-  if (wantQueenside) {
-    let rook = state.board[homeRow][0]
-    if (rook !== null && rook.type === 'rook' && rook.color === color) {
-      let d: Square = { row: homeRow, col: 3 }
-      let c: Square = { row: homeRow, col: 2 }
-      if (state.board[d.row][d.col] === null && state.board[c.row][c.col] === null) {
-        if (
-          isSquareAttacked(state, kingSquare, enemy) === false &&
-          isSquareAttacked(state, d, enemy) === false &&
-          isSquareAttacked(state, c, enemy) === false
-        ) {
-          moves.push({
-            from: { row: kingSquare.row, col: kingSquare.col },
-            to: { row: c.row, col: c.col },
-          })
-        }
-      }
-    }
+  let queenside = castleSideMove(state, color, enemy, kingSquare, false)
+  if (queenside !== null) {
+    moves.push(queenside)
   }
   return moves
+}
+
+function rookHomeRight(row: number, col: number): keyof CastlingRights | null {
+  if (row === 7 && col === 0) {
+    return 'whiteQueenside'
+  }
+  if (row === 7 && col === 7) {
+    return 'whiteKingside'
+  }
+  if (row === 0 && col === 0) {
+    return 'blackQueenside'
+  }
+  if (row === 0 && col === 7) {
+    return 'blackKingside'
+  }
+  return null
 }
 
 export function nextCastlingRights(state: GameState, move: Move): CastlingRights {
@@ -851,53 +804,25 @@ export function nextCastlingRights(state: GameState, move: Move): CastlingRights
   }
   let mover = state.board[move.from.row][move.from.col]
   let captured = state.board[move.to.row][move.to.col]
-  if (mover !== null) {
-    if (mover.type === 'king') {
-      if (mover.color === 'white') {
-        rights.whiteKingside = false
-        rights.whiteQueenside = false
-      } else {
-        rights.blackKingside = false
-        rights.blackQueenside = false
-      }
-    }
-    if (mover.type === 'rook') {
-      if (move.from.row === 7) {
-        if (move.from.col === 0) {
-          rights.whiteQueenside = false
-        }
-        if (move.from.col === 7) {
-          rights.whiteKingside = false
-        }
-      }
-      if (move.from.row === 0) {
-        if (move.from.col === 0) {
-          rights.blackQueenside = false
-        }
-        if (move.from.col === 7) {
-          rights.blackKingside = false
-        }
-      }
+  if (mover !== null && mover.type === 'king') {
+    if (mover.color === 'white') {
+      rights.whiteKingside = false
+      rights.whiteQueenside = false
+    } else {
+      rights.blackKingside = false
+      rights.blackQueenside = false
     }
   }
-  if (captured !== null) {
-    if (captured.type === 'rook') {
-      if (move.to.row === 7) {
-        if (move.to.col === 0) {
-          rights.whiteQueenside = false
-        }
-        if (move.to.col === 7) {
-          rights.whiteKingside = false
-        }
-      }
-      if (move.to.row === 0) {
-        if (move.to.col === 0) {
-          rights.blackQueenside = false
-        }
-        if (move.to.col === 7) {
-          rights.blackKingside = false
-        }
-      }
+  if (mover !== null && mover.type === 'rook') {
+    let fromKey = rookHomeRight(move.from.row, move.from.col)
+    if (fromKey !== null) {
+      rights[fromKey] = false
+    }
+  }
+  if (captured !== null && captured.type === 'rook') {
+    let toKey = rookHomeRight(move.to.row, move.to.col)
+    if (toKey !== null) {
+      rights[toKey] = false
     }
   }
   return rights
@@ -1067,7 +992,10 @@ export function allLegalMoves(state: GameState, color: Color = state.turn): Move
 }
 
 export function applyMove(state: GameState, move: Move): GameState {
-  if (inBounds(move.from.row, move.from.col) === false || inBounds(move.to.row, move.to.col) === false) {
+  if (
+    inBounds(move.from.row, move.from.col) === false ||
+    inBounds(move.to.row, move.to.col) === false
+  ) {
     throw new Error('applyMove: move out of bounds')
   }
   let piece = state.board[move.from.row][move.from.col]
