@@ -28,7 +28,12 @@ export interface ResignMsg {
   type: 'resign'
 }
 
-export type ClientMsg = CreateMsg | JoinMsg | MoveMsg | RematchMsg | ResignMsg
+export interface PingMsg {
+  type: 'ping'
+  nonce: number
+}
+
+export type ClientMsg = CreateMsg | JoinMsg | MoveMsg | RematchMsg | ResignMsg | PingMsg
 
 // ---------------------------------------------------------------------------
 // server -> client
@@ -63,7 +68,12 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = RoomMsg | StateMsg | PresenceMsg | ErrorMsg
+export interface PongMsg {
+  type: 'pong'
+  nonce: number
+}
+
+export type ServerMsg = RoomMsg | StateMsg | PresenceMsg | ErrorMsg | PongMsg
 
 // ---------------------------------------------------------------------------
 // room codes

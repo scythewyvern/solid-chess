@@ -154,6 +154,13 @@ describe('rooms reducer', () => {
     expect(joined.sender).toEqual({ room: code, color: 'white', token: 'c' })
   })
 
+  test('ping is a no-op heartbeat at the reducer level', () => {
+    let book = freshBook()
+    let out = reduceRooms(book, 'x', null, { type: 'ping', nonce: 1 })
+    expect(out.sender).toBeNull()
+    expect(out.replies).toEqual([])
+  })
+
   test('garbage messages get an unknown-message error', () => {
     let book = freshBook()
     let out = reduceRooms(book, 'x', null, { type: 'dance' })

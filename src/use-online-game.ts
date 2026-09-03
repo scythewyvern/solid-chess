@@ -1,11 +1,20 @@
 import { createSignal, onCleanup } from 'solid-js'
 import type { Accessor } from 'solid-js'
 
-import { detectMove, getGameStatus, initialGameState } from './engine'
+import { applyMove, detectMove, getGameStatus, initialGameState } from './engine'
 import type { Color, GameState, Move, PieceType, Square } from './engine'
 import type { GameDriver } from './game-driver'
 import { engineStatusText } from './labels'
 import type { ClientMsg, ResignResult, ServerMsg } from './net-protocol'
+
+export type PingLevel = 'good' | 'ok' | 'bad'
+
+export function pingLevel(ping: number | null): PingLevel | null {
+  if (ping === null) return null
+  if (ping < 120) return 'good'
+  if (ping < 300) return 'ok'
+  return 'bad'
+}
 
 export interface OnlineGame {
   driver: GameDriver
@@ -16,6 +25,7 @@ export interface OnlineGame {
   rematch: Accessor<Record<Color, boolean>>
   room: Accessor<string>
   error: Accessor<string | null>
+  ping: Accessor<number | null>
   resign: () => void
   voteRematch: () => void
   disconnect: () => void
@@ -39,9 +49,15 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   let [room, setRoom] = createSignal('')
   let [error, setError] = createSignal<string | null>(null)
   let [history, setHistory] = createSignal<Move[]>([])
+  let [ping, setPing] = createSignal<number | null>(null)
 
   let prevGame: GameState = initialGameState()
+  let lastServer: GameState = initialGameState()
+  let pending: Move | null = null
   let startBoardJson = JSON.stringify(initialGameState().board)
+  let pingNonce = 0
+  let pingSentAt = 0
+  let pingTimer: ReturnType<typeof setInterval> | null = null
 
   let ws = new WebSocket(url)
 
@@ -51,8 +67,73 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
     }
   }
 
+  function sendPing(): void {
+    if (ws.readyState !== WebSocket.OPEN) return
+    pingNonce = pingNonce + 1
+    pingSentAt = Date.now()
+    send({ type: 'ping', nonce: pingNonce })
+  }
+
+  function startPingLoop(): void {
+    sendPing()
+    if (pingTimer !== null) return
+    pingTimer = setInterval(sendPing, 5000)
+  }
+
+  function stopPingLoop(): void {
+    if (pingTimer !== null) {
+      clearInterval(pingTimer)
+      pingTimer = null
+    }
+  }
+
+  // Authoritative snapshot wins: an optimistic board that matches the
+  // server produces no duplicate history entry via detectMove.
+  function confirmState(next: GameState): void {
+    let moved = detectMove(prevGame, next)
+    if (moved !== null) {
+      setHistory((h) => [...h, moved])
+    } else if (history().length > 0 && JSON.stringify(next.board) === startBoardJson) {
+      setHistory([])
+    }
+    pending = null
+    lastServer = next
+    prevGame = next
+    setGame(next)
+  }
+
+  function revertPending(message: string): void {
+    if (pending !== null) {
+      pending = null
+      prevGame = lastServer
+      setGame(lastServer)
+      setHistory((h) => h.slice(0, -1))
+    }
+    setError(message)
+  }
+
+  function handleServerMsg(msg: ServerMsg): void {
+    if (msg.type === 'room') {
+      setRoom(msg.room)
+      setColor(msg.color)
+    } else if (msg.type === 'state') {
+      confirmState(msg.game)
+      setResult(msg.result)
+      setRematch(msg.rematch)
+      setColor(msg.you)
+    } else if (msg.type === 'presence') {
+      setOpponent(msg.opponent)
+    } else if (msg.type === 'error') {
+      revertPending(msg.message)
+    } else if (msg.type === 'pong') {
+      if (msg.nonce !== pingNonce) return
+      setPing(Date.now() - pingSentAt)
+    }
+  }
+
   ws.onopen = () => {
     setConnected(true)
+    startPingLoop()
     if (opts.create()) {
       send({ type: 'create' })
     } else {
@@ -64,31 +145,11 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   ws.onmessage = (event: MessageEvent) => {
     if (typeof event.data !== 'string') return
     let raw: unknown = JSON.parse(event.data)
-    let msg = raw as ServerMsg
-    if (msg.type === 'room') {
-      setRoom(msg.room)
-      setColor(msg.color)
-    } else if (msg.type === 'state') {
-      let next = msg.game
-      let moved = detectMove(prevGame, next)
-      if (moved !== null) {
-        setHistory((h) => [...h, moved])
-      } else if (history().length > 0 && JSON.stringify(next.board) === startBoardJson) {
-        setHistory([])
-      }
-      prevGame = next
-      setGame(next)
-      setResult(msg.result)
-      setRematch(msg.rematch)
-      setColor(msg.you)
-    } else if (msg.type === 'presence') {
-      setOpponent(msg.opponent)
-    } else if (msg.type === 'error') {
-      setError(msg.message)
-    }
+    handleServerMsg(raw as ServerMsg)
   }
 
   onCleanup(() => {
+    stopPingLoop()
     try {
       ws.close()
     } catch {
@@ -98,7 +159,17 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
 
   function sendMove(from: Square, to: Square, promotion?: PieceType): void {
     if (connected() === false) return
-    send({ type: 'move', move: { from, to, promotion } })
+    let move: Move = { from, to, promotion }
+    try {
+      let applied = applyMove(game(), move)
+      prevGame = applied
+      setGame(applied)
+      setHistory((h) => [...h, move])
+      pending = move
+    } catch {
+      pending = null
+    }
+    send({ type: 'move', move })
   }
 
   function resign(): void {
@@ -110,6 +181,7 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   }
 
   function disconnect(): void {
+    stopPingLoop()
     try {
       ws.close()
     } catch {
@@ -160,6 +232,7 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
     rematch,
     room,
     error,
+    ping,
     resign,
     voteRematch,
     disconnect,

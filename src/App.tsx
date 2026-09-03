@@ -5,7 +5,7 @@ import { MenuScreen } from './menu-screen'
 import { useConfirm } from './use-confirm'
 import { useLastRoom } from './use-last-room'
 import { useLocalGame } from './use-local-game'
-import { useOnlineGame } from './use-online-game'
+import { pingLevel, useOnlineGame } from './use-online-game'
 
 import './styles.css'
 
@@ -98,6 +98,21 @@ function OnlineSession(props: {
     if (resign.trigger()) online.resign()
   }
 
+  function pingText(): string | null {
+    let ms = online.ping()
+    if (ms === null) return null
+    return `${String(ms)} ms`
+  }
+
+  function pingClass(): string {
+    let level = pingLevel(online.ping())
+    return level === null ? 'ping' : `ping ping-${level}`
+  }
+
+  function showPing(): boolean {
+    return online.connected() && online.ping() !== null
+  }
+
   return (
     <div class='online-wrap'>
       <div class='room-code'>
@@ -112,6 +127,11 @@ function OnlineSession(props: {
         >
           {copied() ? 'Copied' : 'Copy'}
         </button>
+        <Show when={showPing()}>
+          <span class={pingClass()} title='Round-trip time to the server'>
+            {pingText()}
+          </span>
+        </Show>
       </div>
       <Show when={online.error() !== null}>
         <div class='error' role='alert'>

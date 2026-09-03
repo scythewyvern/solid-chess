@@ -2,6 +2,7 @@
 @import '@radix-ui/colors/cyan.css';
 @import '@radix-ui/colors/brown.css';
 @import '@radix-ui/colors/jade.css';
+@import '@radix-ui/colors/orange.css';
 @import '@radix-ui/colors/slate.css';
 @import '@radix-ui/colors/red.css';
 
@@ -9,6 +10,7 @@
 @import '@radix-ui/colors/cyan-dark.css';
 @import '@radix-ui/colors/brown-dark.css';
 @import '@radix-ui/colors/jade-dark.css';
+@import '@radix-ui/colors/orange-dark.css';
 @import '@radix-ui/colors/slate-dark.css';
 @import '@radix-ui/colors/red-dark.css';
 
@@ -613,6 +615,49 @@ html {
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--ink-soft);
+}
+
+.ping {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.ping::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--ink-soft);
+}
+
+.ping-good {
+  color: var(--jade-11);
+}
+
+.ping-good::before {
+  background-color: var(--jade-9);
+}
+
+.ping-ok {
+  color: var(--orange-11);
+}
+
+.ping-ok::before {
+  background-color: var(--orange-9);
+}
+
+.ping-bad {
+  color: var(--red-11);
+}
+
+.ping-bad::before {
+  background-color: var(--red-9);
 }
 
 .error {

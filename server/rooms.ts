@@ -257,5 +257,8 @@ export function reduceRooms(
   if (t === 'move') return handleMove(book, sender, (raw as { move?: unknown }).move)
   if (t === 'resign') return handleResign(book, sender)
   if (t === 'rematch') return handleRematch(book, sender)
+  // Ping is a transport heartbeat answered by ws-server before reaching
+  // the reducer; landing here means a test called reduceRooms directly.
+  if (t === 'ping') return { sender, replies: [] }
   return { sender, replies: errorReply('Unknown message') }
 }

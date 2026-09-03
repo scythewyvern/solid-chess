@@ -189,6 +189,10 @@ function isError(m: ServerMsg): boolean {
   return m.type === 'error'
 }
 
+function isPong(m: ServerMsg): boolean {
+  return m.type === 'pong'
+}
+
 async function createRoom(): Promise<{ white: WebSocket; room: string }> {
   let white = await connectClient()
   send(white, { type: 'create' })
@@ -381,4 +385,14 @@ test('rematch votes reset board and swap colors', async () => {
   }
   expect(wPresence.opponent).toBe(true)
   expect(bPresence.opponent).toBe(true)
+})
+
+test('ping echoes a pong with the same nonce', async () => {
+  let { white } = await createRoom()
+  send(white, { type: 'ping', nonce: 41 })
+  let pong = await nextMsg(white, isPong)
+  if (pong.type !== 'pong') {
+    throw new Error('expected pong')
+  }
+  expect(pong.nonce).toBe(41)
 })
