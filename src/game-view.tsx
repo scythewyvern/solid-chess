@@ -153,10 +153,10 @@ export function GameView(props: GameViewProps) {
         <div class='status' aria-live='polite'>
           <Show when={props.driver.turnDot()} keyed={false}>
             {(dot) => {
-              let color = dot()
-              return color !== null ? (
-                <span class={['turn-dot', color]} aria-hidden='true' />
-              ) : null
+              // Read inside JSX: <Show> invokes function children untracked,
+              // so a body-level read would snapshot (and go stale) here.
+              let getColor = () => dot() ?? 'white'
+              return <span class={['turn-dot', getColor()]} aria-hidden='true' />
             }}
           </Show>
           <span>{props.driver.statusText()}</span>

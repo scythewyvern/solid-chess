@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js'
+import { createSignal, For, Show, untrack } from 'solid-js'
 
 import type { AiLevel } from './ai'
 import type { Color } from './engine'
@@ -21,7 +21,9 @@ let LEVELS: AiLevel[] = ['easy', 'medium', 'hard']
 export function MenuScreen(props: MenuScreenProps) {
   let [showOnline, setShowOnline] = createSignal(false)
   let [showComputer, setShowComputer] = createSignal(false)
-  let [roomInput, setRoomInput] = createSignal(props.initialRoom)
+  // One-time snapshot: the input keeps its own text from here on, and the
+  // menu remounts on every visit, so no subscription is wanted (untrack).
+  let [roomInput, setRoomInput] = createSignal(untrack(() => props.initialRoom))
   let [color, setColor] = createSignal<Color>('white')
   let [level, setLevel] = createSignal<AiLevel>('medium')
 

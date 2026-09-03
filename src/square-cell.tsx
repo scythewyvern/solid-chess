@@ -12,7 +12,7 @@ import type { FlyPiece } from './use-fly-animation'
 // TEMP DEBUG: drag-and-drop kill-switch while hunting the gray-screen crash.
 // Set back to true to restore mouse/touch dragging. Tap-to-move keeps
 // working either way (SquareCell onClick -> onTap).
-export const DND_ENABLED = false
+export const DND_ENABLED: boolean = true
 
 export interface SquareView {
   turn: Color
