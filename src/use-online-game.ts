@@ -4,6 +4,7 @@ import type { Accessor } from 'solid-js'
 import { applyMove, detectMove, getGameStatus, initialGameState } from './engine'
 import type { Color, GameState, Move, PieceType, Square } from './engine'
 import type { GameDriver } from './game-driver'
+import { t } from './i18n'
 import { engineStatusText } from './labels'
 import type { ClientMsg, ResignResult, ServerMsg } from './net-protocol'
 
@@ -203,8 +204,8 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   function statusText(): string {
     let res = result()
     if (res !== null) {
-      if (res.winner === color()) return 'Opponent resigned. You win!'
-      return 'You resigned. Opponent wins.'
+      if (res.winner === color()) return t('resignedWin')
+      return t('resignedLoss')
     }
     return engineStatusText(game())
   }
@@ -216,10 +217,11 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   }
 
   function presence(): string | null {
-    if (connected() === false) return 'Connecting…'
+    if (connected() === false) return t('connecting')
     let c = color()
-    let you = c === null ? 'Connected' : `You play ${c === 'white' ? 'White' : 'Black'}`
-    return opponent() ? you : `${you} · Waiting for opponent…`
+    let you =
+      c === null ? t('connected') : c === 'white' ? t('youPlayWhite') : t('youPlayBlack')
+    return opponent() ? you : `${you} · ${t('waitingOpponent')}`
   }
 
   let driver: GameDriver = {

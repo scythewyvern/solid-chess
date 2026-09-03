@@ -6,6 +6,7 @@ import type { AiLevel } from './ai'
 import { applyMove, getGameStatus, initialGameState } from './engine'
 import type { Color, GameState, Move, PieceType, Square } from './engine'
 import type { GameDriver } from './game-driver'
+import { t } from './i18n'
 import { engineStatusText } from './labels'
 
 export interface ComputerOpts {
@@ -136,12 +137,13 @@ export function useComputerGame(opts: ComputerOpts): ComputerGame {
 
   function statusText(): string {
     let base = engineStatusText(game())
-    if (thinking()) return `${base} — ${aiLevelName(opts.level())} is thinking…`
+    if (thinking()) return `${base} — ${t('thinking', { level: aiLevelName(opts.level()) })}`
     return base
   }
 
   function presence(): string {
-    return `You play ${opts.human() === 'white' ? 'White' : 'Black'} · ${aiLevelName(opts.level())}`
+    let you = opts.human() === 'white' ? t('youPlayWhite') : t('youPlayBlack')
+    return `${you} · ${aiLevelName(opts.level())}`
   }
 
   let driver: GameDriver = {

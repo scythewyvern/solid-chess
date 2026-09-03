@@ -5,8 +5,9 @@ import type { ParentProps } from 'solid-js'
 import type { PieceType } from './engine'
 import { squareName } from './engine'
 import type { GameDriver } from './game-driver'
+import { t } from './i18n'
 import type { IconName } from './icon/icons'
-import { PIECE_NAMES } from './labels'
+import { pieceName } from './labels'
 import { PieceIcon } from './piece-icon'
 import { SquareCell } from './square-cell'
 import { useFlyAnimation } from './use-fly-animation'
@@ -59,7 +60,7 @@ export function GameView(props: GameViewProps) {
     <div class='layout'>
       <dnd.Provider>
         <div class='board-wrap'>
-          <div class='board' role='grid' aria-label='Chess board'>
+          <div class='board' role='grid' aria-label={t('boardLabel')}>
             <For each={order()}>
               {(row) => (
                 <div class='row' role='row'>
@@ -112,10 +113,10 @@ export function GameView(props: GameViewProps) {
           </div>
           <Show when={input.promo()}>
             {(pending) => (
-              <div class='promo-overlay' role='dialog' aria-label='Choose a promotion piece'>
+              <div class='promo-overlay' role='dialog' aria-label={t('promoTitle')}>
                 <div class='promo-box'>
                   <div class='promo-title'>
-                    Promotion on {squareName(pending().to)} — choose a piece
+                    {t('promoChoose', { sq: squareName(pending().to) })}
                   </div>
                   <div class='promo-choices'>
                     <For each={PROMO_CHOICES}>
@@ -124,14 +125,14 @@ export function GameView(props: GameViewProps) {
                           type='button'
                           class='promo-choice'
                           onClick={() => input.choosePromotion(type)}
-                          aria-label={PIECE_NAMES[type]}
+                          aria-label={pieceName(type)}
                         >
                           <span class='piece'>
                             <PieceIcon
                               name={`${props.driver.game().turn}-${type}` as IconName}
                             />
                           </span>
-                          <span>{PIECE_NAMES[type]}</span>
+                          <span>{pieceName(type)}</span>
                         </button>
                       )}
                     </For>
@@ -141,7 +142,7 @@ export function GameView(props: GameViewProps) {
                     class='btn btn-secondary'
                     onClick={() => input.cancelPromo()}
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                 </div>
               </div>
@@ -164,9 +165,9 @@ export function GameView(props: GameViewProps) {
         <Show when={props.driver.presence() !== null}>
           <div class='presence'>{props.driver.presence()}</div>
         </Show>
-        <div class='material' aria-label='Material'>
+        <div class='material' aria-label={t('material')}>
           <div class='material-title'>
-            <span>Material</span>
+            <span>{t('material')}</span>
             <span class='material-meta'>
               <span class='scores'>
                 {meta.score().white}–{meta.score().black}
@@ -174,22 +175,22 @@ export function GameView(props: GameViewProps) {
               <Show when={meta.score().diff !== 0}>
                 <span class='diff'>
                   {meta.score().diff > 0
-                    ? `+${meta.score().diff} White`
-                    : `${meta.score().diff} Black`}
+                    ? t('whiteLead', { n: meta.score().diff })
+                    : t('blackLead', { n: meta.score().diff })}
                 </span>
               </Show>
               <Show when={meta.score().diff === 0}>
-                <span class='diff even'>Even</span>
+                <span class='diff even'>{t('even')}</span>
               </Show>
             </span>
           </div>
           <div class='material-row'>
-            <span class='m-side'>White captured</span>
+            <span class='m-side'>{t('whiteCaptured')}</span>
             <span class='m-pieces'>
               <For each={meta.takenByWhite()}>
-                {(t) => (
+                {(p) => (
                   <span class='mini'>
-                    <PieceIcon name={`black-${t}` as IconName} />
+                    <PieceIcon name={`black-${p}` as IconName} />
                   </span>
                 )}
               </For>
@@ -199,12 +200,12 @@ export function GameView(props: GameViewProps) {
             </span>
           </div>
           <div class='material-row'>
-            <span class='m-side'>Black captured</span>
+            <span class='m-side'>{t('blackCaptured')}</span>
             <span class='m-pieces'>
               <For each={meta.takenByBlack()}>
-                {(t) => (
+                {(p) => (
                   <span class='mini'>
-                    <PieceIcon name={`white-${t}` as IconName} />
+                    <PieceIcon name={`white-${p}` as IconName} />
                   </span>
                 )}
               </For>
@@ -215,10 +216,10 @@ export function GameView(props: GameViewProps) {
           </div>
         </div>
         <div class='controls'>{props.footer}</div>
-        <div class='hint'>Drag pieces with mouse, touch, or keyboard (Space + arrows).</div>
+        <div class='hint'>{t('dragHint')}</div>
         <Show when={props.driver.history().length > 0}>
           <div class='history-wrap'>
-            <div class='section-label'>Moves</div>
+            <div class='section-label'>{t('moves')}</div>
             <ol class='history-table'>
               <For each={meta.movePairs()}>
                 {(row) => (

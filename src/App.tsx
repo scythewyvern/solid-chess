@@ -3,6 +3,7 @@ import type { Accessor } from 'solid-js'
 
 import { initClientErrorReporting, reportClientError } from './client-log'
 import { GameView } from './game-view'
+import { locale, t } from './i18n'
 import { MenuScreen } from './menu-screen'
 import type { ComputerChoice } from './menu-screen'
 import { useComputerGame } from './use-computer-game'
@@ -60,20 +61,15 @@ function CrashFallback(props: { err: Accessor<unknown>; reset: () => void }) {
     <div class='error' role='alert'>
       <Show
         when={translationDetected()}
-        fallback={
-          <span>Something broke: {getMessage()}. The error was sent to the server log.</span>
-        }
+        fallback={<span>{t('crashGeneric', { msg: getMessage() })}</span>}
       >
-        <span>
-          Page translation breaks the board — turn it off and reload. The error was sent to the
-          server log.
-        </span>
+        <span>{t('crashTranslated')}</span>
       </Show>
       <button type='button' class='btn btn-secondary' onClick={() => props.reset()}>
-        Retry
+        {t('retry')}
       </button>
       <button type='button' class='btn btn-secondary' onClick={reload}>
-        Reload
+        {t('reload')}
       </button>
     </div>
   )
@@ -88,7 +84,7 @@ function defaultWsUrl(): string {
   return `${proto}//${location.host}/ws`
 }
 
-function LocalSession() {
+function LocalSession(props: { onLeave: () => void }) {
   let local = useLocalGame()
 
   return (
@@ -97,16 +93,19 @@ function LocalSession() {
       footer={
         <>
           <button type='button' class='btn' onClick={local.restart}>
-            New game
+            {t('newGame')}
           </button>
           <button
             type='button'
             class='btn btn-secondary'
             onClick={local.undo}
             disabled={local.canUndo() === false}
-            title={local.canUndo() ? 'Take back the last move' : 'Nothing to undo yet'}
+            title={local.canUndo() ? t('undoTakeBack') : t('undoEmpty')}
           >
-            Undo move
+            {t('undoMove')}
+          </button>
+          <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
+            {t('leaveRoom')}
           </button>
         </>
       }
@@ -117,6 +116,7 @@ function LocalSession() {
 function ComputerSession(props: {
   color: ComputerChoice['color']
   level: ComputerChoice['level']
+  onLeave: () => void
 }) {
   let game = useComputerGame({
     human: () => props.color,
@@ -129,16 +129,19 @@ function ComputerSession(props: {
       footer={
         <>
           <button type='button' class='btn' onClick={game.restart}>
-            New game
+            {t('newGame')}
           </button>
           <button
             type='button'
             class='btn btn-secondary'
             onClick={game.undo}
             disabled={game.canUndo() === false}
-            title={game.canUndo() ? 'Take back your last move' : 'Nothing to undo yet'}
+            title={game.canUndo() ? t('undoTakeBackOwn') : t('undoEmpty')}
           >
-            Undo move
+            {t('undoMove')}
+          </button>
+          <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
+            {t('leaveRoom')}
           </button>
         </>
       }
@@ -196,7 +199,7 @@ function OnlineSession(props: {
   function pingText(): string | null {
     let ms = online.ping()
     if (ms === null) return null
-    return `${String(ms)} ms`
+    return `${String(ms)} ${t('pingUnit')}`
   }
 
   function pingClass(): string {
@@ -211,19 +214,19 @@ function OnlineSession(props: {
   return (
     <div class='online-wrap'>
       <div class='room-code'>
-        <span>Room</span>
+        <span>{t('room')}</span>
         <code>{roomCode() === '' ? '…' : roomCode()}</code>
         <button
           type='button'
           class='btn btn-secondary'
           onClick={copyRoom}
           disabled={roomCode() === ''}
-          title={roomCode() === '' ? 'Waiting for the room code' : 'Copy the room code'}
+          title={roomCode() === '' ? t('waitingRoomCode') : t('copyRoomCode')}
         >
-          {copied() ? 'Copied' : 'Copy'}
+          {copied() ? t('copied') : t('copy')}
         </button>
         <Show when={showPing()}>
-          <span class={pingClass()} title='Round-trip time to the server'>
+          <span class={pingClass()} title={t('pingTitle')}>
             {pingText()}
           </span>
         </Show>
@@ -232,10 +235,10 @@ function OnlineSession(props: {
         <div class='error' role='alert'>
           <span>{online.error()}</span>
           <button type='button' class='btn btn-secondary' onClick={() => props.onRetry()}>
-            Retry
+            {t('retry')}
           </button>
           <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
-            Menu
+            {t('menu')}
           </button>
         </div>
       </Show>
@@ -248,23 +251,21 @@ function OnlineSession(props: {
               class='btn btn-danger'
               onClick={onResignClick}
               disabled={online.driver.inputLocked() || online.connected() === false}
-              title={resign.armed() ? 'Click again to confirm' : 'Give up this game'}
+              title={resign.armed() ? t('resignArmedTitle') : t('resignTitle')}
             >
-              {resign.armed() ? 'Confirm resign?' : 'Resign'}
+              {resign.armed() ? t('resignConfirm') : t('resign')}
             </button>
             <button
               type='button'
               class='btn btn-secondary'
               onClick={() => online.voteRematch()}
               disabled={ownVote()}
-              title={
-                ownVote() ? 'Waiting for the opponent' : 'Start a new game with swapped colors'
-              }
+              title={ownVote() ? t('rematchWaitingTitle') : t('rematchVoteTitle')}
             >
-              {rematchWaiting() ? 'Rematch (1/2)' : 'Rematch'}
+              {rematchWaiting() ? t('rematchWaiting') : t('rematch')}
             </button>
             <button type='button' class='btn btn-secondary' onClick={() => props.onLeave()}>
-              Leave room
+              {t('leaveRoom')}
             </button>
           </>
         }
@@ -302,6 +303,15 @@ function OnlineDriver(props: {
 export default function App() {
   let [mode, setMode] = createSignal<Mode>({ kind: 'menu' })
   let lastRoom = useLastRoom()
+
+  // Keep <html lang> in sync with the UI locale (two-arg form: Solid 2
+  // effects split the tracked compute from the imperative callback).
+  createEffect(
+    () => locale(),
+    (lang) => {
+      document.documentElement.lang = lang
+    }
+  )
 
   let onlineOpts = createMemo(() => {
     let m = mode()
@@ -347,10 +357,10 @@ export default function App() {
           />
         </Show>
         <Show when={mode().kind === 'local'}>
-          <LocalSession />
+          <LocalSession onLeave={toMenu} />
         </Show>
         <Show when={computerOpts()} keyed>
-          {(c) => <ComputerSession color={c.color} level={c.level} />}
+          {(c) => <ComputerSession color={c.color} level={c.level} onLeave={toMenu} />}
         </Show>
         <Show when={onlineOpts()}>
           {(opts) => (

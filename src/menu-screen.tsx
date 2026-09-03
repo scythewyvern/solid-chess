@@ -1,7 +1,9 @@
 import { createSignal, For, Show, untrack } from 'solid-js'
 
 import type { AiLevel } from './ai'
+import { aiLevelName } from './ai'
 import type { Color } from './engine'
+import { locale, setLocale, t } from './i18n'
 
 export interface ComputerChoice {
   color: Color
@@ -39,24 +41,42 @@ export function MenuScreen(props: MenuScreenProps) {
 
   return (
     <div class='menu'>
-      <h1 class='menu-title'>Chess</h1>
+      <h1 class='menu-title'>{t('appTitle')}</h1>
+      <div class='menu-row' role='group' aria-label={t('languageLabel')}>
+        <button
+          type='button'
+          class={locale() === 'en' ? 'btn' : 'btn btn-secondary'}
+          onClick={() => setLocale('en')}
+          aria-pressed={locale() === 'en' ? 'true' : 'false'}
+        >
+          English
+        </button>
+        <button
+          type='button'
+          class={locale() === 'ru' ? 'btn' : 'btn btn-secondary'}
+          onClick={() => setLocale('ru')}
+          aria-pressed={locale() === 'ru' ? 'true' : 'false'}
+        >
+          Русский
+        </button>
+      </div>
       <div class='menu-row'>
         <button type='button' class='btn' onClick={() => props.onLocal()}>
-          Two players
+          {t('twoPlayers')}
         </button>
         <button
           type='button'
           class='btn btn-secondary'
           onClick={() => setShowComputer((v) => !v)}
         >
-          Vs computer
+          {t('vsComputer')}
         </button>
         <button
           type='button'
           class='btn btn-secondary'
           onClick={() => setShowOnline((v) => !v)}
         >
-          Play online
+          {t('playOnline')}
         </button>
       </div>
       <Show when={showComputer()}>
@@ -67,7 +87,7 @@ export function MenuScreen(props: MenuScreenProps) {
             onClick={() => setColor('white')}
             aria-pressed={color() === 'white' ? 'true' : 'false'}
           >
-            White
+            {t('colorWhite')}
           </button>
           <button
             type='button'
@@ -75,10 +95,10 @@ export function MenuScreen(props: MenuScreenProps) {
             onClick={() => setColor('black')}
             aria-pressed={color() === 'black' ? 'true' : 'false'}
           >
-            Black
+            {t('colorBlack')}
           </button>
         </div>
-        <div class='menu-row' role='group' aria-label='Difficulty'>
+        <div class='menu-row' role='group' aria-label={t('difficulty')}>
           <For each={LEVELS}>
             {(lv) => (
               <button
@@ -87,21 +107,21 @@ export function MenuScreen(props: MenuScreenProps) {
                 onClick={() => setLevel(lv)}
                 aria-pressed={level() === lv ? 'true' : 'false'}
               >
-                {lv === 'easy' ? 'Easy' : lv === 'medium' ? 'Medium' : 'Hard'}
+                {aiLevelName(lv)}
               </button>
             )}
           </For>
         </div>
         <div class='menu-row'>
           <button type='button' class='btn' onClick={startComputer}>
-            Start game
+            {t('startGame')}
           </button>
         </div>
       </Show>
       <Show when={showOnline()}>
         <div class='menu-row'>
           <button type='button' class='btn btn-secondary' onClick={() => props.onCreate()}>
-            Create room
+            {t('createRoom')}
           </button>
         </div>
         <div class='menu-row'>
@@ -109,12 +129,12 @@ export function MenuScreen(props: MenuScreenProps) {
             class='room-input'
             value={roomInput()}
             onInput={(e) => setRoomInput(e.currentTarget.value)}
-            placeholder='CODE'
-            aria-label='Room code'
+            placeholder={t('roomCodePlaceholder')}
+            aria-label={t('roomCodeLabel')}
             maxlength={8}
           />
           <button type='button' class='btn' onClick={joinRoom}>
-            Join
+            {t('join')}
           </button>
         </div>
       </Show>

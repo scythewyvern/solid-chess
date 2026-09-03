@@ -1,5 +1,6 @@
 import { allLegalMoves, applyMove, getGameStatus, PIECE_VALUES } from './engine'
 import type { GameState, Move } from './engine'
+import { t } from './i18n'
 
 export type AiLevel = 'easy' | 'medium' | 'hard'
 
@@ -110,7 +111,7 @@ export function chooseMove(state: GameState, level: AiLevel): AiChoice {
 }
 
 export function aiLevelName(level: AiLevel): string {
-  if (level === 'easy') return 'Easy'
-  if (level === 'medium') return 'Medium'
-  return 'Hard'
+  if (level === 'easy') return t('levelEasy')
+  if (level === 'medium') return t('levelMedium')
+  return t('levelHard')
 }
