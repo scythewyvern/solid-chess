@@ -100,6 +100,7 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
     lastServer = next
     prevGame = next
     setGame(next)
+    setError(null)
   }
 
   function revertPending(message: string): void {
@@ -144,8 +145,13 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
   ws.onerror = () => setConnected(false)
   ws.onmessage = (event: MessageEvent) => {
     if (typeof event.data !== 'string') return
-    let raw: unknown = JSON.parse(event.data)
-    handleServerMsg(raw as ServerMsg)
+    let msg: ServerMsg
+    try {
+      msg = JSON.parse(event.data) as ServerMsg
+    } catch {
+      return
+    }
+    handleServerMsg(msg)
   }
 
   onCleanup(() => {
@@ -167,7 +173,9 @@ export function useOnlineGame(url: string, opts: OnlineOpts): OnlineGame {
       setHistory((h) => [...h, move])
       pending = move
     } catch {
+      // Illegal locally: never send, the server would reject it too.
       pending = null
+      return
     }
     send({ type: 'move', move })
   }

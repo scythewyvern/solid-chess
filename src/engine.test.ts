@@ -509,6 +509,105 @@ describe('king and castling', () => {
     expect(next.castling.whiteQueenside).toBe(false)
     expect(next.castling.whiteKingside).toBe(true)
   })
+
+  test('a piece on b1 blocks queenside castling but not kingside', () => {
+    let state = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['a1', 'rook', 'white'],
+        ['h1', 'rook', 'white'],
+        ['b1', 'knight', 'white'],
+      ]),
+      castling: fullRights(),
+    })
+    let names = moveNames(legalMoves(state, sq('e1')))
+    expect(names).not.toContain('e1c1')
+    expect(names).toContain('e1g1')
+  })
+
+  test('an attack on d1 or c1 kills queenside castling', () => {
+    let viaD1 = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['a1', 'rook', 'white'],
+        ['h1', 'rook', 'white'],
+        ['a4', 'bishop', 'black'],
+      ]),
+      castling: fullRights(),
+    })
+    expect(isSquareAttacked(viaD1, sq('d1'), 'black')).toBe(true)
+    expect(moveNames(legalMoves(viaD1, sq('e1')))).not.toContain('e1c1')
+    let viaC1 = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['a1', 'rook', 'white'],
+        ['h1', 'rook', 'white'],
+        ['g5', 'bishop', 'black'],
+      ]),
+      castling: fullRights(),
+    })
+    expect(isSquareAttacked(viaC1, sq('c1'), 'black')).toBe(true)
+    expect(moveNames(legalMoves(viaC1, sq('e1')))).not.toContain('e1c1')
+  })
+
+  test('an attack on b1 does not stop queenside castling', () => {
+    let state = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['a1', 'rook', 'white'],
+        ['h1', 'rook', 'white'],
+        ['a2', 'bishop', 'black'],
+      ]),
+      castling: fullRights(),
+    })
+    expect(isSquareAttacked(state, sq('b1'), 'black')).toBe(true)
+    expect(moveNames(legalMoves(state, sq('e1')))).toContain('e1c1')
+  })
+
+  test('black castles both sides on an open back rank', () => {
+    let state = custom({
+      board: withPieces([
+        ['e8', 'king', 'black'],
+        ['a8', 'rook', 'black'],
+        ['h8', 'rook', 'black'],
+      ]),
+      turn: 'black',
+      castling: fullRights(),
+    })
+    expect(moveNames(legalMoves(state, sq('e8')))).toEqual([
+      'e8c8',
+      'e8d7',
+      'e8d8',
+      'e8e7',
+      'e8f7',
+      'e8f8',
+      'e8g8',
+    ])
+    let kingside = applyMove(state, mv('e8', 'g8'))
+    expect(at(kingside.board, 'g8')).toEqual({ type: 'king', color: 'black' })
+    expect(at(kingside.board, 'f8')).toEqual({ type: 'rook', color: 'black' })
+    expect(kingside.castling.blackKingside).toBe(false)
+    let queenside = applyMove(state, mv('e8', 'c8'))
+    expect(at(queenside.board, 'c8')).toEqual({ type: 'king', color: 'black' })
+    expect(at(queenside.board, 'd8')).toEqual({ type: 'rook', color: 'black' })
+    expect(queenside.castling.blackQueenside).toBe(false)
+  })
+
+  test('a piece on b8 blocks black queenside castling', () => {
+    let state = custom({
+      board: withPieces([
+        ['e8', 'king', 'black'],
+        ['a8', 'rook', 'black'],
+        ['h8', 'rook', 'black'],
+        ['b8', 'knight', 'black'],
+      ]),
+      turn: 'black',
+      castling: fullRights(),
+    })
+    let names = moveNames(legalMoves(state, sq('e8')))
+    expect(names).not.toContain('e8c8')
+    expect(names).toContain('e8g8')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -661,6 +760,26 @@ describe('en passant', () => {
     let next = applyMove(initialGameState(), mv('e2', 'e4'))
     expect(next.enPassant).toEqual(sq('e3'))
   })
+
+  test('en passant pin: taking uncovers a rook check, so it is illegal', () => {
+    let state = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['e5', 'pawn', 'white'],
+        ['d5', 'pawn', 'black'],
+        ['e8', 'rook', 'black'],
+      ]),
+      enPassant: sq('d6'),
+    })
+    expect(moveNames(legalMoves(state, sq('e5')))).toEqual(['e5e6'])
+  })
+
+  test('the ep square expires after one move', () => {
+    let s1 = applyMove(initialGameState(), mv('e2', 'e4'))
+    expect(s1.enPassant).toEqual(sq('e3'))
+    let s2 = applyMove(s1, mv('g8', 'f6'))
+    expect(s2.enPassant).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -693,6 +812,35 @@ describe('promotion', () => {
     expect(() => applyMove(state, mv('e7', 'e8'))).toThrow()
     let quiet = custom({ board: withPieces([['e4', 'pawn', 'white']]) })
     expect(() => applyMove(quiet, mv('e4', 'e5', 'queen'))).toThrow()
+  })
+
+  test('underpromotion to knight keeps winning where queen stalemates', () => {
+    let prev = custom({
+      board: withPieces([
+        ['a7', 'pawn', 'white'],
+        ['a6', 'king', 'white'],
+        ['c6', 'rook', 'white'],
+        ['h8', 'king', 'black'],
+      ]),
+    })
+    let knightPromo = applyMove(prev, mv('a7', 'a8', 'knight'))
+    expect(at(knightPromo.board, 'a8')).toEqual({ type: 'knight', color: 'white' })
+    expect(getGameStatus(knightPromo).status).not.toBe('stalemate')
+    expect(detectMove(prev, knightPromo)).toEqual({
+      from: sq('a7'),
+      to: sq('a8'),
+      promotion: 'knight',
+    })
+  })
+
+  test('promotion resets the halfmove clock', () => {
+    let state = custom({
+      board: withPieces([['e7', 'pawn', 'white']]),
+      halfmove: 40,
+    })
+    let next = applyMove(state, mv('e7', 'e8', 'rook'))
+    expect(next.halfmove).toBe(0)
+    expect(at(next.board, 'e8')).toEqual({ type: 'rook', color: 'white' })
   })
 })
 
@@ -827,6 +975,40 @@ describe('game status', () => {
     expect(getGameStatus(state)).toEqual({ status: 'draw-fifty', winner: null })
   })
 
+  test('ninety-nine halfmoves is still ongoing', () => {
+    let state = custom({ board: initialGameState().board, halfmove: 99 })
+    expect(getGameStatus(state)).toEqual({ status: 'ongoing', winner: null })
+  })
+
+  test('checkmate beats the fifty-move clock', () => {
+    let s1 = applyMove(initialGameState(), mv('f2', 'f3'))
+    let s2 = applyMove(s1, mv('e7', 'e5'))
+    let s3 = applyMove(s2, mv('g2', 'g4'))
+    let mate = applyMove({ ...s3, halfmove: 100 }, mv('d8', 'h4'))
+    expect(getGameStatus(mate)).toEqual({ status: 'checkmate', winner: 'black' })
+  })
+
+  test('quiet king and rook moves tick the clock', () => {
+    let king = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['h1', 'rook', 'white'],
+        ['e8', 'king', 'black'],
+      ]),
+      halfmove: 10,
+    })
+    expect(applyMove(king, mv('e1', 'f1')).halfmove).toBe(11)
+    let rook = custom({
+      board: withPieces([
+        ['e1', 'king', 'white'],
+        ['h1', 'rook', 'white'],
+        ['e8', 'king', 'black'],
+      ]),
+      halfmove: 10,
+    })
+    expect(applyMove(rook, mv('h1', 'h2')).halfmove).toBe(11)
+  })
+
   test('bare kings are a material draw', () => {
     let state = custom({
       board: withPieces([
@@ -865,6 +1047,45 @@ describe('game status', () => {
       ]),
     })
     expect(getGameStatus(state)).toEqual({ status: 'ongoing', winner: null })
+  })
+
+  test('material table: only bare kings and lone minors draw', () => {
+    function statusOf(pieces: Array<[string, PieceType, Color]>) {
+      return getGameStatus(custom({ board: withPieces(pieces) })).status
+    }
+    function kings(extra: Array<[string, PieceType, Color]>) {
+      return [['e1', 'king', 'white'], ['e8', 'king', 'black'], ...extra] as Array<
+        [string, PieceType, Color]
+      >
+    }
+    expect(statusOf(kings([]))).toBe('draw-material')
+    expect(statusOf(kings([['c1', 'bishop', 'white']]))).toBe('draw-material')
+    expect(statusOf(kings([['b1', 'knight', 'white']]))).toBe('draw-material')
+    expect(statusOf(kings([['d1', 'rook', 'white']]))).toBe('ongoing')
+    expect(statusOf(kings([['d1', 'queen', 'white']]))).toBe('ongoing')
+    expect(statusOf(kings([['a2', 'pawn', 'white']]))).toBe('ongoing')
+    expect(
+      statusOf(
+        kings([
+          ['c1', 'bishop', 'white'],
+          ['f8', 'bishop', 'black'],
+        ])
+      )
+    ).toBe('ongoing')
+    expect(
+      statusOf(
+        kings([
+          ['b1', 'knight', 'white'],
+          ['g8', 'knight', 'white'],
+        ])
+      )
+    ).toBe('ongoing')
+  })
+
+  test('promotion with a full board never reports a phantom capture', () => {
+    let state = custom({ board: initialGameState().board })
+    expect(capturedPieces(state.board, 'white')).toEqual([])
+    expect(capturedPieces(state.board, 'black')).toEqual([])
   })
 })
 

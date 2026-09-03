@@ -204,6 +204,9 @@ function handleRematch(book: RoomBook, sender: Seat | null): ReduceOutput {
   if (room === undefined) return { sender, replies: errorReply('Room not found') }
   if (seated(room, sender) === false)
     return { sender, replies: errorReply('You are not in a room') }
+  // Rematch is a post-game vote: mid-game votes are rejected so a misclick
+  // can never wipe a live game.
+  if (room.result === null) return { sender, replies: errorReply('Game is not over') }
   room.rematch[sender.color] = true
   if (room.rematch.white && room.rematch.black) {
     let whiteToken = room.seats.white
@@ -238,6 +241,15 @@ export function leaveRoom(book: RoomBook, sender: Seat | null): ReduceOutput {
   if (room.seats[sender.color] === sender.token) {
     room.seats[sender.color] = null
     room.rematch[sender.color] = false
+  }
+  if (room.seats.white === null && room.seats.black === null) {
+    book.delete(sender.room)
+    return { sender: null, replies: [] }
+  }
+  // A newcomer must earn a fresh vote: a lone vote from the previous game
+  // never survives a changed lineup.
+  if (room.seats.white === null || room.seats.black === null) {
+    room.rematch = { white: false, black: false }
   }
   return { sender: null, replies: presenceReplies(room) }
 }

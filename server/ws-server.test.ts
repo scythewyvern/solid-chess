@@ -396,3 +396,17 @@ test('ping echoes a pong with the same nonce', async () => {
   }
   expect(pong.nonce).toBe(41)
 })
+
+test('ping without a nonce gets an error, not silence', async () => {
+  let { white } = await createRoom()
+  send(white, { type: 'ping' })
+  let err = await nextMsg(white, isError)
+  expect(err).toEqual({ type: 'error', message: 'Ping needs a numeric nonce' })
+})
+
+test('bad JSON gets an invalid-format error', async () => {
+  let white = await connectClient()
+  white.send('not json{{{')
+  let err = await nextMsg(white, isError)
+  expect(err).toEqual({ type: 'error', message: 'Invalid message format' })
+})

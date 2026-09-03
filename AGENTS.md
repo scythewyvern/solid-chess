@@ -9,7 +9,7 @@ serves the static client and `/ws`.
 
 - `bun lint` — run after every code change; fix all errors and warnings.
 - `bun fmt` — run at the end of every task (after lint is clean).
-- `bun test` — run after behavior changes; keep 95/95 green.
+- `bun test` — run after behavior changes; keep the suite green.
 - `bun run build` — run before finishing deploy/server/client changes.
 - `bun lint:fix` — only for safe mechanical fixes; re-check the diff after.
 

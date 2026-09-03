@@ -732,14 +732,20 @@ function castleSideMove(
   }
   let through: Array<number> = [5, 6]
   let targetCol = 6
+  let empty: Array<number> = [5, 6]
   if (kingside === false) {
     through = [3, 2]
     targetCol = 2
+    // b1 is not crossed by the king, so no attack check — but it must be
+    // empty for the rook to pass through.
+    empty = [1, 2, 3]
   }
-  for (let col of through) {
+  for (let col of empty) {
     if (state.board[homeRow][col] !== null) {
       return null
     }
+  }
+  for (let col of through) {
     if (isSquareAttacked(state, { row: homeRow, col: col }, enemy)) {
       return null
     }

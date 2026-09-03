@@ -2,7 +2,7 @@
 
 A fully playable chess app: local two-player and online multiplayer over WebSockets.
 Framework-free rules engine, SolidJS UI with click and drag-and-drop input, strict
-TypeScript, 95 tests.
+TypeScript, 129 tests.
 
 ![Board after Qxf7+ — check, material lead and move list in the side panel](docs/screenshot-board.png)
 
@@ -94,7 +94,7 @@ The codebase is split along a single seam: pure logic versus reactive UI.
 
 ## Testing
 
-`bun test` runs 95 tests: engine rules (including fool's and scholar's mate, pins,
+`bun test` runs 129 tests: engine rules (including fool's and scholar's mate, pins,
 promotion, castling rights), rooms-reducer units, and full client↔server flows over
 real sockets. UI flows (menu → game, click moves, room creation) are additionally
 exercised in headless Chromium over CDP.

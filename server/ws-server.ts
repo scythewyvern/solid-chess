@@ -42,12 +42,15 @@ export function startServer(port: number): { stop: () => void; port: number } {
 
   // Heartbeats bypass the game reducer: a pong must come back even
   // mid-game or with no seat, otherwise latency readings stall.
-  function handleHeartbeat(ws: Ws, data: unknown): boolean {
-    if (typeof data !== 'object' || data === null) return false
+  function handleHeartbeat(ws: Ws, data: unknown): boolean | null {
+    if (typeof data !== 'object' || data === null) return null
     let t = (data as { type?: unknown }).type
-    if (t !== 'ping') return false
+    if (t !== 'ping') return null
     let nonce = (data as { nonce?: unknown }).nonce
-    if (typeof nonce !== 'number') return false
+    if (typeof nonce !== 'number') {
+      deliver(ws, { type: 'error', message: 'Ping needs a numeric nonce' })
+      return true
+    }
     deliver(ws, { type: 'pong', nonce })
     return true
   }
@@ -71,7 +74,8 @@ export function startServer(port: number): { stop: () => void; port: number } {
       deliver(ws, { type: 'error', message: 'Invalid message format' })
       return
     }
-    if (handleHeartbeat(ws, data)) return
+    let heartbeat = handleHeartbeat(ws, data)
+    if (heartbeat === true) return
     let out = reduceRooms(book, ws.data.token, ws.data.seat, data)
     ws.data.seat = out.sender
     dispatch(ws, out.replies)
