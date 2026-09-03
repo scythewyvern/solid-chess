@@ -85,7 +85,14 @@ export function useComputerGame(opts: ComputerOpts): ComputerGame {
     // Only the human side goes through input; the engine answers itself.
     if (game().turn !== opts.human()) return
     let move: Move = { from, to, promotion }
-    let next = applyMove(game(), move)
+    let next: GameState
+    try {
+      next = applyMove(game(), move)
+    } catch {
+      // Stale or duplicate input (an emulated second tap): an illegal move
+      // is ignored instead of crashing the board.
+      return
+    }
     pushState(next, move)
     answerIfNeeded(next)
   }

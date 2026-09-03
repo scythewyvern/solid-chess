@@ -20,10 +20,15 @@ export function useLocalGame(): LocalGame {
 
   function submitMove(from: Square, to: Square, promotion?: PieceType) {
     if (getGameStatus(game()).status !== 'ongoing') return
-    let next = applyMove(game(), { from, to, promotion })
-    setPast((p) => [...p, game()])
-    setGame(next)
-    setHistory((h) => [...h, { from, to, promotion }])
+    try {
+      let next = applyMove(game(), { from, to, promotion })
+      setPast((p) => [...p, game()])
+      setGame(next)
+      setHistory((h) => [...h, { from, to, promotion }])
+    } catch {
+      // Stale or duplicate input (an emulated second tap): an illegal move
+      // is ignored instead of crashing the board.
+    }
   }
 
   function restart() {
