@@ -10,7 +10,16 @@ import './styles.css'
 
 type Mode = { kind: 'menu' } | { kind: 'local' } | { kind: 'online'; create: boolean; room: string }
 
-let WS_URL: string = import.meta.env.VITE_WS_URL ?? 'ws://localhost:3001/ws'
+let WS_URL: string = import.meta.env.VITE_WS_URL ?? defaultWsUrl()
+
+// Same-origin /ws by default so a deployed single-service build just works.
+// Local dev overrides it via .env.development ( Vite dev server has no /ws ).
+// Guarded for SSR prerender where location does not exist.
+function defaultWsUrl(): string {
+  if (typeof location === 'undefined') return 'ws://localhost:3001/ws'
+  let proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${location.host}/ws`
+}
 
 function LocalSession() {
   let local = useLocalGame()

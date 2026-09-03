@@ -1,10 +1,15 @@
 import type { ServerWebSocket } from 'bun'
+import { fileURLToPath } from 'node:url'
 
 import { leaveRoom, reduceRooms } from './rooms'
 import type { Reply, RoomBook, Seat } from './rooms'
 import type { ServerMsg } from '../src/net-protocol'
 
 type Ws = ServerWebSocket<{ token: string; seat: Seat | null }>
+
+// dist/client is resolved from this file, not from CWD, so the server works
+// from any working directory (repo root locally, /app in Docker).
+let clientDir = fileURLToPath(new URL('../dist/client/', import.meta.url))
 
 // Thin transport: upgrades sockets, routes JSON to the pure rooms reducer
 // and delivers its replies. All game rules live in rooms.ts.
@@ -67,7 +72,13 @@ export function startServer(port: number): { stop: () => void; port: number } {
 
   let server = Bun.serve({
     port: port,
-    fetch(req, server) {
+    hostname: '0.0.0.0',
+    routes: {
+      '/health': new Response('OK'),
+      '/assets/*': { dir: clientDir + 'assets' },
+      '/favicon.svg': new Response(Bun.file(clientDir + 'favicon.svg')),
+    },
+    fetch: async (req, server) => {
       let url = new URL(req.url)
       if (url.pathname === '/ws') {
         let token = 't' + String(nextToken)
@@ -78,9 +89,20 @@ export function startServer(port: number): { stop: () => void; port: number } {
         }
         return new Response('Upgrade failed', { status: 500 })
       }
+      // Single-page app: navigation serves index.html, unknown asset paths 404.
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname.includes('.') === false)) {
+        let index = Bun.file(clientDir + 'index.html')
+        if (await index.exists()) {
+          return new Response(index)
+        }
+      }
       return new Response('Not found', { status: 404 })
     },
     websocket: {
+      // Chess thinks longer than 10s: disable the idle kill and ping so both
+      // Bun and any proxy in front (e.g. Railway) see a live connection.
+      idleTimeout: 0,
+      sendPings: true,
       open(ws: Ws) {
         sockets.set(ws.data.token, ws)
       },
@@ -96,7 +118,8 @@ export function startServer(port: number): { stop: () => void; port: number } {
 }
 
 if (import.meta.main) {
-  let port = Number(process.env.WS_PORT ?? 3001)
+  // Railway injects PORT; WS_PORT stays for local runs.
+  let port = Number(process.env.PORT ?? process.env.WS_PORT ?? 3001)
   let srv = startServer(port)
   console.log('WS server ready on ' + String(srv.port))
 }

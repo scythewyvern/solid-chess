@@ -45,6 +45,26 @@ Point the client at another host when deploying separately:
 VITE_WS_URL=ws://host:3001/ws bun run dev
 ```
 
+## Deploy (Railway, single service)
+
+One container serves both the static client and the WebSocket server on the
+same origin, so no URL coordination is needed:
+
+- `Dockerfile` builds the client (`bun run build`) and starts
+  `server/ws-server.ts` on `$PORT` (Railway injects it; `WS_PORT` is the local
+  fallback). No `node_modules` in the runtime image — the server has zero
+  runtime dependencies.
+- The server serves `dist/client` itself (`/assets/*` directory route,
+  `/favicon.svg` file route, `index.html` SPA fallback) plus `/health` and
+  the `/ws` upgrade on the same port. WebSocket keepalive (`sendPings`, no
+  idle kill) survives slow games and proxies.
+- The client defaults to same-origin `/ws` (`wss://` under https);
+  `.env.development` redirects local dev to `ws://localhost:3001/ws`.
+
+Steps: New Project → Deploy from GitHub → pick `solid-chess` (the Dockerfile
+is picked up automatically) → Generate Domain. Open `https://<domain>`,
+create a room, share the code.
+
 ## Checks
 
 ```sh
