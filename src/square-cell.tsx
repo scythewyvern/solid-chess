@@ -9,6 +9,11 @@ import { FILES, squareAriaLabel } from './labels'
 import { PieceIcon } from './piece-icon'
 import type { FlyPiece } from './use-fly-animation'
 
+// TEMP DEBUG: drag-and-drop kill-switch while hunting the gray-screen crash.
+// Set back to true to restore mouse/touch dragging. Tap-to-move keeps
+// working either way (SquareCell onClick -> onTap).
+export const DND_ENABLED = false
+
 export interface SquareView {
   turn: Color
   selected: Square | null
@@ -69,6 +74,7 @@ export function SquareCell(props: SquareCellProps) {
 
   let drop = createDroppable(name(), undefined, {
     accept: (draggable) => {
+      if (DND_ENABLED === false) return false
       try {
         if (props.inputLocked()) return false
         let from = parseSquare(String(draggable.id))
@@ -95,6 +101,7 @@ export function SquareCell(props: SquareCellProps) {
     class: 'piece-drag',
     draggingClass: 'is-dragging',
     disabled: () => {
+      if (DND_ENABLED === false) return true
       if (props.gameOngoing() === false || props.promoOpen() || props.inputLocked())
         return true
       let p = piece()
